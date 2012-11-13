@@ -1,0 +1,9 @@
+[submodule "cCode"]
+	path = cCode
+	url = /Users/steve/Data/spot_early/cCode
+[submodule "local/lib_phd"]
+	path = local/lib_phd
+	url = /Users/steve/Data/spot_early/local/lib_phd
+[submodule "local/lib_usr"]
+	path = local/lib_usr
+	url = /Users/steve/Data/spot_early/local/lib_usr

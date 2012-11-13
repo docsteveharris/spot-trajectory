@@ -1,0 +1,85 @@
+# GTD
+## inbox.todo
+- multiple imputation for missing data wherein you define the population of all ward admissions and then perform MI for those where sites did not report data
+	
+## resume.todo
+- priority is to get working_traj table up and running; issue is with cmp data … use tailsmini and pull from tailsFinal @done
+- So it looks like pre-admission trajectory is unimportant for the majority of admissions, now examine post-admission trajectory in SwiFT: this provides a nice link and gives you a chance to discuss (SPOT)id. Would expect post-admission trajectory to have different meaning (response to treatment indicator)
+	
+## later.todo
+- tailsMini is a compromise … need to produce a subset of CMP data that you genuinely need and code the field responses
+- replace the '.' in dates with missing fields with an empty string
+- index_table.py should not be case sensitive @done
+- make_table.py is incredibly slow with datasets of 100k+ … 
+
+# Logbook
+121110
+- define working data for trip to Pittsburgh
+121111
+- SPOT trajectory work
+	- need basic table: start from tailsFinal 
+	- merge in headsFinal since this will bring outcome data
+	
+121112.todo
+	- consort diagram data @done
+	- define carefully delta IM using time @done
+	- bring across IM prob @done
+	- bring across individual variables @done
+	- model build @done
+- 121113.todo
+	- convert from logistic model
+	- examine within subgrps (pneumonia, septic shock, acute panc)
+	- examine components of trajectory
+		- P:F ratio
+	
+# Results
+
+## Patients and population
+### Inclusions
+	- adult emergency ward admissions
+	- Available population
+		- 96 sites
+		- 888 months
+		- 14189 admissions
+	- Inclusion: Initial quality criteria 
+		- 59 sites
+		- 564 months 
+			- 8.7 months per site
+		- 9329 admissions
+	- Exclusion (on going quality checks): 
+		- 57 sites
+		- 465 months
+		- 7678 admissions
+
+### Exclusions
+	- Counts below include those excluded in the last step above b/c of poor quality
+	- 1234 + 25 reported by site to be ineligible: no bedside assessment
+	- 741 re-admissions
+	- 2213 missing survival status
+	- 861 indirect ward to ICU admissions
+	
+### Final sample
+	- 4763 (87 patients per site)
+	- 54 sites
+	- 454 months (8.4 months per site, 10 patients per month)
+	- Median 10 patients per month (IQR 7-13) (Range 3-27)
+
+# Discussion
+## Telling the story
+- Meaning of trajectory
+- Why pre-admission trajectory will be 'different' 
+- Collecting the data
+	- Warning: this can only be used for those admitted: cannot interpret it to have meaning pre-admission since you did not observe trajectory in the non-admitted
+- Trajectory as a univariate signal looks good
+	- Across subgrps
+	- Across components … maybe
+		- weak relationship for P:F
+		- no clinically relevant relationship for creatinine or urine
+- Trajectory is correlated but not perfectly so with admission current value
+- Punchline: But it does not work (overall)
+## Meaning of trajectory
+
+	- measurement error
+	- clinical momentum
+	- biological timing
+	- response to treatment
