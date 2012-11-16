@@ -1,11 +1,13 @@
-local debug = 1
-if `debug' {
-	use ../data/working.dta, clear
+global debug = 0
+if $debug {
+    use ../data/working.dta, clear
 }
 
 sort icnno adno
 gen id=_n
 set seed 3001
+
+stset date_trace, origin(time daicu) failure(dead) exit(time daicu+28)
 
 
 count if _valid_row == 0
@@ -82,14 +84,34 @@ NOTE: 2012-11-12 - this assumes that
 all ICNARC scores within the 1st 24 hours are equivalent
 */
 gen delta = ims2 - ims1
-label var delta "ICNARC score delta"
-gen traj = (ims2 - ims1) / time2icu
-label var traj "ICNARC score trajectory"
+label var delta "ICNARC score delta (total diff)"
+gen ims_traj = (ims2 - ims1) / (round(time2icu, 24) +1)
+label var ims_traj "ICNARC score trajectory (per day)"
 
 cap drop traj_cat
-egen traj_cat = cut(traj), at(-40,-20,-10,-4,-2,0,2,4,10,20,40) label
-label var traj_cat "Trajectory - categorical"
-tab traj_cat
+cap drop ims_traj_cat
+gen ims_traj_cat = .
+replace ims_traj_cat =  1   if ims_traj <= -10 & ims_traj_cat == .
+replace ims_traj_cat =  2   if ims_traj <= -5 & ims_traj_cat == .
+replace ims_traj_cat =  3   if ims_traj <= -2 & ims_traj_cat == .
+replace ims_traj_cat =  4   if ims_traj <=  1 & ims_traj_cat == .
+replace ims_traj_cat =  5   if ims_traj <=  4 & ims_traj_cat == .
+replace ims_traj_cat =  6   if ims_traj <=  9 & ims_traj_cat == .
+replace ims_traj_cat =  7   if ims_traj <=  14 & ims_traj_cat == .
+replace ims_traj_cat =  8   if ims_traj >   14 & ims_traj_cat == .
+cap label drop ims_traj_cat
+label define ims_traj_cat ///
+        1 "Decr - fast" ///
+        2 "Decr - med" ///
+        3 "Decr - slow" ///
+        4 "No change" ///
+        5 "Incr - slow" ///
+        6 "Incr - med" ///
+        7 "Incr - fast" ///
+        8 "Incr - extreme"
+label values ims_traj_cat ims_traj_cat
+tab ims_traj_cat
+
 
 /*
 Diagnostic coding
@@ -146,8 +168,8 @@ replace dx_cat = 6 if dx_arf
 label var dx_cat "Diagnosis - categorical"
 cap label drop dx_cat
 label define dx_cat 0 "Other" 1 "Pneum - viral" 2 "Pneum - bact" ///
-	3 "Pneum - unknown" 4 "Septic shock" 5 "Acute pancreatitis" ///
-	6 "Acute renal failure"
+    3 "Pneum - unknown" 4 "Septic shock" 5 "Acute pancreatitis" ///
+    6 "Acute renal failure"
 label values dx_cat dx_cat
 tab dx_cat
 
@@ -156,6 +178,94 @@ d dx_*
 *  ====================================================
 *  = Derive specific spot-cmpd physiology comparisons =
 *  ====================================================
+
+/* Heart rate */
+cap drop hr1 hr2
+ren hrate hr1
+label var hr1 "Heart rate - SPOT"
+gen hr2 = hhr
+replace hr2 = lhr if hr2 == .
+label var hr1 "Heart rate - CMPD"
+
+
+foreach var of varlist hr1 hr2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 14 if `var' <= 39
+    replace `var'_wt = 0 if `var' <= 109 & `var'_wt == .
+    replace `var'_wt = 1 if `var' <= 119 & `var'_wt == .
+    replace `var'_wt = 2 if `var' <= 139 & `var'_wt == .
+    replace `var'_wt = 3 if `var' > 139 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
+
+/* BP systolic */
+cap drop bps1 bps2
+rename bpsys bps1
+label var bps1 "SBP - SPOT"
+gen bps2 = lsys
+replace bps2 = hsys if bps2 == .
+label var bps1 "SBP - CMPD"
+
+foreach var of varlist bps1 bps2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 15 if `var' <= 49 & `var'_wt == .
+    replace `var'_wt = 9 if `var' <= 59 & `var'_wt == .
+    replace `var'_wt = 6 if `var' <= 69 & `var'_wt == .
+    replace `var'_wt = 4 if `var' <= 79 & `var'_wt == .
+    replace `var'_wt = 2 if `var' <= 99 & `var'_wt == .
+    replace `var'_wt = 0 if `var' <= 179 & `var'_wt == .
+    replace `var'_wt = 7 if `var' <= 219 & `var'_wt == .
+    replace `var'_wt = 16 if `var' > 219 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
+/* Temperature */
+cap drop temp1 temp2
+rename temperature temp1
+label var temp1 "Temp - SPOT"
+gen temp2 = hctemp
+replace temp2 = hnctemp if temp2 == .
+label var temp2 "Temp - CMPD"
+su temp1 temp2
+
+foreach var of varlist temp1 temp2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 12 if `var' <= 33.9 & `var'_wt == .
+    replace `var'_wt = 7 if `var' <= 35.9 & `var'_wt == .
+    replace `var'_wt = 1 if `var' <= 38.4 & `var'_wt == .
+    replace `var'_wt = 1 if `var' > 41 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    replace `var'_wt = . if `var' < 25
+    bys `var'_wt: su `var'
+}
+
+/* Respiratory rate */
+cap drop rr1 rr2
+rename rrate rr1
+label var rr1 "Resp rate - SPOT"
+gen rr2 = lnvrr if lnvrr != 0
+replace rr2 = hnvrr if hnvrr != 0 & rr2 == .
+label var rr2 "Resp rate - CMPD"
+su rr1 rr2
+
+foreach var of varlist rr1 rr2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 1 if `var' <= 5 & `var'_wt == .
+    replace `var'_wt = 0 if `var' <= 11 & `var'_wt == .
+    replace `var'_wt = 1 if `var' <= 13 & `var'_wt == .
+    replace `var'_wt = 2 if `var' <= 24 & `var'_wt == .
+    replace `var'_wt = 5 if `var' > 25 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
 /* P:F ratio */
 cap drop pf1 pf2
 replace pao2 = pao2 / 7.7 if abgunit == 2
@@ -165,7 +275,78 @@ label var pf1 "P:F ratio - SPOT"
 label var pf2 "P:F ratio - CMPD"
 su pf1 pf2
 
-/* Creatinine and urine */
+foreach var of varlist pf1 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 6 if `var' <=    13 & !inlist(rxfio2,1,2,3) & `var'_wt == .
+    replace `var'_wt = 3 if `var' <=    27 & !inlist(rxfio2,1,2,3) & `var'_wt == .
+    replace `var'_wt = 0 if `var' >     27 & !inlist(rxfio2,1,2,3) & `var'_wt == .
+    tab `var'_wt
+    replace `var'_wt = 8 if `var' <=    13 & inlist(rxfio2,1,2,3) & `var'_wt == .
+    replace `var'_wt = 5 if `var' <=    27 & inlist(rxfio2,1,2,3) & `var'_wt == .
+    replace `var'_wt = 3 if `var' >     27 & inlist(rxfio2,1,2,3) & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    tab `var'_wt
+    bys `var'_wt: su `var'
+}
+
+foreach var of varlist pf2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 6 if `var' <=    13 & intilpo == 0 & `var'_wt == .
+    replace `var'_wt = 3 if `var' <=    27 & intilpo == 0 & `var'_wt == .
+    replace `var'_wt = 0 if `var' >     27 & intilpo == 0 & `var'_wt == .
+    replace `var'_wt = 8 if `var' <=    13 & intilpo == 1 & `var'_wt == .
+    replace `var'_wt = 5 if `var' <=    27 & intilpo == 1 & `var'_wt == .
+    replace `var'_wt = 3 if `var' >     27 & intilpo == 1 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
+/* pH */
+cap drop ph1 ph2
+ren ph ph1
+label var ph1 "pH - SPOT"
+ren lph_v3 ph2
+label var ph2 "pH - CMPD"
+/* Temp fix to avoid H+ data */
+replace ph2 = .a if ph2 > 8 | ph2 < 6.5
+su ph1 ph2
+
+foreach var of varlist ph1 ph2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 4 if `var' <= 7.14 & `var'_wt == .
+    replace `var'_wt = 2 if `var' <= 7.24 & `var'_wt == .
+    replace `var'_wt = 0 if `var' <= 7.32 & `var'_wt == .
+    replace `var'_wt = 1 if `var' <= 7.49 & `var'_wt == .
+    replace `var'_wt = 4 if `var' >  7.49 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
+
+
+/* Urea */
+cap drop urea1 urea2
+ren urea urea1
+ren hu urea2
+label var urea1 "Urea - SPOT"
+label var urea2 "Urea - CMPD"
+su urea1 urea2
+
+foreach var of varlist urea1 urea2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 0 if `var' <= 6.1 & `var'_wt == .
+    replace `var'_wt = 1 if `var' <= 7.1 & `var'_wt == .
+    replace `var'_wt = 3 if `var' <= 14.3 & `var'_wt == .
+    replace `var'_wt = 5 if `var' >  14.3 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
+/* Creatinine */
 cap drop cr1 cr2
 rename creatinine cr1
 gen cr2 = hcreat
@@ -174,6 +355,41 @@ label var cr1 "Creatinine - SPOT"
 label var cr2 "Creatinine - CMPD"
 su cr1 cr2
 
+foreach var of varlist cr1 cr2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 0 if `var' <= 0.5 * 88.4 & `var'_wt == .
+    replace `var'_wt = 2 if `var' <= 1.5 * 88.4 & `var'_wt == .
+    replace `var'_wt = 4 if `var' >  1.5 * 88.4 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
+/* Sodium */
+gen na2 = lna
+replace na2 = hna if na2 == .
+label var na2 "Sodium - CMPD"
+/* Some v low sodiums in CMPD ... not possible */
+replace na2 = .a if na2 < 80
+ren sodium na1
+label var na1 "Sodium - SPOT"
+replace na1 = .a if na1 < 80
+gen na_traj = (na2 - na1) / (round(time2icu, 24) + 1)
+label var na_traj "Sodium slope"
+
+foreach var of varlist na1 na2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 4 if `var' <= 129 & `var'_wt == .
+    replace `var'_wt = 0 if `var' <= 149 & `var'_wt == .
+    replace `var'_wt = 4 if `var' <= 154 & `var'_wt == .
+    replace `var'_wt = 7 if `var' <= 159 & `var'_wt == .
+    replace `var'_wt = 8 if `var' >  160 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
+/* Urine */
 cap drop urin1 urin2
 rename uvol1h urin1
 
@@ -192,12 +408,127 @@ label var urin1 "Urine ml/hr - SPOT"
 label var urin2 "Urine ml/hr - CMPD"
 su urin1 urin2
 
+foreach var of varlist urin1 urin2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 7 if `var' <= 399 / 24 & `var'_wt == .
+    replace `var'_wt = 6 if `var' <= 599 / 24 & `var'_wt == .
+    replace `var'_wt = 5 if `var' <= 899 / 24 & `var'_wt == .
+    replace `var'_wt = 3 if `var' <= 1499 / 24 & `var'_wt == .
+    replace `var'_wt = 1 if `var' <= 1999 / 24 & `var'_wt == .
+    replace `var'_wt = 0 if `var' >  1999 / 24 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
+/* White cell count */
+cap drop wcc1 wcc2
+ren wcc wcc1
+label var wcc1 "WCC - SPOT"
+gen wcc2 = hwbc
+replace wcc2 = lwbc if wcc2 == .
+label var wcc2 "WCC - CMPD"
+su wcc1 wcc2
+
+foreach var of varlist wcc1 wcc2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 6 if `var' <= 0.6 & `var'_wt == .
+    replace `var'_wt = 3 if `var' <= 2.9 & `var'_wt == .
+    replace `var'_wt = 0 if `var' <= 14.9 & `var'_wt == .
+    replace `var'_wt = 2 if `var' <= 39.9 & `var'_wt == .
+    replace `var'_wt = 4 if `var' >  39.9 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
+/* GCS */
+cap drop gcs1 gcs2
+ren gcst gcs1
+label var gcs1 "GCS - SPOT"
+ren ltot gcs2
+label var gcs2 "GCS - CMPD"
+replace gcs2 = .a if gcs2 < 3
+su gcs1 gcs2
+
+* NOTE: 2012-11-15 - does not include the weighting for sedated or paralysed
+foreach var of varlist gcs1 gcs2 {
+    cap drop `var'_wt
+    gen `var'_wt = .
+    replace `var'_wt = 11 if `var' <= 3 & `var'_wt == .
+    replace `var'_wt = 9 if `var' <= 4 & `var'_wt == .
+    replace `var'_wt = 6 if `var' <= 5 & `var'_wt == .
+    replace `var'_wt = 4 if `var' <= 6 & `var'_wt == .
+    replace `var'_wt = 2 if `var' <= 13 & `var'_wt == .
+    replace `var'_wt = 1 if `var' <= 14 & `var'_wt == .
+    replace `var'_wt = 0 if `var' == 15 & `var'_wt == .
+    replace `var'_wt = . if `var' >= .
+    bys `var'_wt: su `var'
+}
+
+
+/* Lactate */
+cap drop lac1 lac2
+ren lactate lac1
+rename hbl lac2
+label var lac1 "Lactate - SPOT"
+label var lac2 "Lactate - CMPD"
+su lac1 lac2
+
+/* Platelets */
+ren lpc plat2
+ren platelets plat1
+label var plat1 "Platelets - SPOT"
+label var plat2 "Platelets - CMPD"
+gen plat_traj = (plat2 - plat1) / (round(time2icu, 24) + 1)
+label var plat_traj "Platelets slope"
+
+
+*  =================================
+*  = Create your own ICNARC scores =
+*  =================================
+cap drop ims1_miss ims2_miss ims_c1 ims_c2 ims_c_traj ims1_miss ims2_miss
+/* NOTE: 2012-11-15 - egen rowmiss does not catch .a, .b etc */
+egen ims1_miss = rowmiss(*1_wt)
+egen ims2_miss = rowmiss(*2_wt)
+tab ims1_miss ims2_miss
+egen ims_c1 = rowtotal(*1_wt) if ims1_miss == 0 & ims2_miss == 0
+egen ims_c2 = rowtotal(*2_wt) if ims1_miss == 0 & ims2_miss == 0
+label var ims_c1 "IMscore - SPOT - complete"
+label var ims_c2 "IMscore - CMPD - complete"
+gen ims_c_traj = (ims_c2 - ims_c1) / (round(time2icu, 24) + 1)
+label var ims_c_traj "IMscore - complete - slope"
+
+cap drop ims1_miss_some ims2_miss_some ims_ms1 ims_ms2 ims_ms_traj
+egen ims1_miss_some = rowmiss(hr1 bps1 rr1 cr1 na1 wcc1 temp1 urea1)
+egen ims2_miss_some = rowmiss(hr2 bps2 rr2 cr2 na2 wcc2 temp2 urea2)
+tab ims1_miss_some ims2_miss_some
+
+egen ims_ms1 = rowtotal(hr1_wt bps1_wt rr1_wt cr1_wt na1_wt wcc1_wt ///
+     temp1_wt urea1_wt) if ims1_miss_some == 0 & ims2_miss_some == 0
+egen ims_ms2 = rowtotal(hr2_wt bps2_wt rr2_wt cr2_wt na2_wt wcc2_wt ///
+     temp2_wt urea2_wt) if ims1_miss_some == 0 & ims2_miss_some == 0
+label var ims_ms1 "IMscore - SPOT - miss some"
+label var ims_ms2 "IMscore - CMPD - miss some"
+gen ims_ms_traj = (ims_ms2 - ims_ms1) / (round(time2icu, 24) + 1)
+label var ims_ms_traj "IMscore - miss some - slope"
+su ims_ms_traj, d
 
 
 
 
-
-
-
-
+*  ================
+*  = Trajectories =
+*  ================
+cap drop pf_traj traj_urin cr_traj
+drop pf_ratio
+gen pf_traj = (pf2 - pf1) / (round(time2icu, 24) + 1)
+label var pf_traj "P:F slope"
+gen traj_urin = (urin2 - urin1) / (round(time2icu, 24) + 1)
+label var traj_urin "Urine output slope"
+gen cr_traj = (cr2 - cr1) / (round(time2icu, 24) + 1)
+label var cr_traj "Creatinine slope"
+gen traj_lac = (lac2 - lac1) / (round(time2icu, 24) + 1)
+label var traj_lac "Lactate slope"
+su lac* cr* urin* pf* ims* traj*, sep(2)
 

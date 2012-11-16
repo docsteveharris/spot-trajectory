@@ -50,7 +50,9 @@ include cr_working.do
 
 include an_table_study.do
 
-include an_table_patients.do
+include an_table_baseline.do
+
+include cr_survival.do
 
 include an_traj.do
 

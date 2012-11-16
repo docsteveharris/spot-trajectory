@@ -5,11 +5,11 @@
 *  =======================================
 *  = Log definitions and standard set-up =
 *  =======================================
-GenericSetupSteveHarris spot_traj an_table_study
+GenericSetupSteveHarris spot_traj an_table_study, logon
 clear all
 use ../data/working.dta
 quietly include cr_preflight.do
-codebook, compact
+// codebook, compact
 count
 
 *  =====================
@@ -37,3 +37,4 @@ su patients_per_month, d
 
 * restore
 
+cap log close
