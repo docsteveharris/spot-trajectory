@@ -62,3 +62,4 @@ program traj_check
 	graph export ../logs/d28_`stem'_curr_traj.pdf, replace
 
 end
+

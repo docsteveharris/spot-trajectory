@@ -16,7 +16,7 @@ GenericSetupSteveHarris spot_traj cr_working, logon
 *  =======================================
 *  = Visit level data import from SQL db =
 *  =======================================
-capture {
+* capture {
 
 	odbc query "`ddsn'", user("`uuser'") pass("`ppass'") verbose
 
@@ -61,7 +61,8 @@ capture {
 		exit
 	}
 
-}
+* }
+save ../data/working_raw.dta, replace
 
 *  ========================
 *  = Define analysis axes =
@@ -80,12 +81,20 @@ NOTE: 2012-11-12 -
 	- therefore currently working with inclusion criteria in SQL statement
 */
 
-count
-tab match_is_ok
 
+use ../data/working_raw.dta, clear
+/* CHANGED: 2012-11-21 - drop airedale */
+cap drop if icode == "72s"
 cap drop included_sites
 egen included_sites = tag(icode)
 count if included_sites == 1
+cap drop included_months
+egen included_months = tag(icode studymonth)
+
+count
+count if included_sites == 1
+count if included_months == 1
+tab match_is_ok
 
 * Define the inclusion by intention
 /*
@@ -93,57 +102,79 @@ Emergency direct ward to ICU admissions
 */
 
 gen include = 1
-replace include = 0 if elgage == 0
-replace include = 0 if elgdate == 0
+replace include = 0 if elgage != 1
+replace include = 0 if elgdate != 1
 * CHANGED: 2012-11-14 - make direct ward to icu admission part of the inclusion
-// replace include = 0 if elgward == 0 & elgoward == 0 & elgtrans == 0
-replace include = 0 if elgward == 0
+// replace include = 0 if elgward != 1 & elgoward != 1 & elgtrans != 1
+replace include = 0 if elgward != 1
+/* elgprotocol only exists for heads so check for '0' not '1'  */
 replace include = 0 if elgprotocol == 0
 * CHANGED: 2012-11-14 - add this to inclusion
-replace include = 0 if elgemx ==0
+replace include = 0 if elgemx != 1
+
 tab include
+keep if include
+tab match_is_ok
+/* approx 62% raw matched */
 
-count if included_sites == 1 & include == 1
-
+cap drop included_sites
+egen included_sites = tag(icode)
+count if included_sites == 1
 cap drop included_months
 egen included_months = tag(icode studymonth)
-count if included_months == 1 & include == 1
+
+count
+count if included_sites == 1
+count if included_months == 1
+tab match_is_ok
 
 *  ===================================================================
 *  = Define inclusion by intention and linkage quality in months 1-3 =
 *  ===================================================================
 
-gen early_exclude = include == 1 & site_quality_q1 < 80
-tab early_exclude if include
-replace include = 0 if early_exclude == 1
+cap drop early_exclude
+gen early_exclude = site_quality_q1 < 80
+tab early_exclude 
+drop if early_exclude
+
 tab include
 tab match_is_ok if include
 
 cap drop included_sites
-egen included_sites = tag(icode) if include == 1
-
-count if included_sites == 1 & include == 1
+egen included_sites = tag(icode)
+count if included_sites == 1
 cap drop included_months
-
 egen included_months = tag(icode studymonth)
-count if included_months == 1 & include == 1
 
+count
+count if included_sites == 1
+count if included_months == 1
+tab match_is_ok
 
-/* Late exclusions on quality grounds */
+*  ======================================
+*  = Late exclusions on quality grounds =
+*  ======================================
 
+cap drop late_exclude
 gen late_exclude = include == 1 & !inlist(studymonth,1,2,3) & ///
 	(site_quality_by_month < 80 | site_quality_by_month == .)
-tab include
+
+tab late_exclude if include
 tab match_is_ok if include & !late_exclude
-tab studymonth late_exclude if include == 1
+drop if late_exclude
 
 cap drop included_sites
-egen included_sites = tag(icode) if include == 1 & late_exclude == 0
-count if included_sites == 1 & include == 1 & late_exclude == 0
-
+egen included_sites = tag(icode)
+count if included_sites == 1
 cap drop included_months
 egen included_months = tag(icode studymonth)
-count if included_months == 1 & include == 1 & late_exclude == 0
+
+count
+count if included_sites == 1
+count if included_months == 1
+tab match_is_ok
+
+
 
 *  ==============
 *  = Exclusions =
@@ -168,8 +199,16 @@ replace exclude = 1 if include == 1 & elgreport_heads == 0
 replace exclude = 1 if include == 1 & elgreport_tails == 0
 * NOTE: 2012-11-14 - you may want to replace this ... but avoids 'within patient issues'
 replace exclude = 1 if include == 1 & withinsh == 1
-* CHANGED: 2012-11-14 - this should *NOT* be part of the exclusion ... dishonest?
+
+/*
 // replace exclude = 1 if include == 1 & missing(date_trace)
+CHANGED: 2012-11-14 - this should *NOT* be part of the exclusion ... dishonest?
+- not dishonest: but you traced using (SPOT)light data not CMPD data hence you 
+*don't* have survival data for patients in CMPD who met the inclusion criteria but
+were not found in (SPOT)light
+TODO: 2012-11-21 - consider tracing CMPD cases ... even though you don't have names
+*/
+
 
 tab match_is_ok if include & !exclude
 tab exclude if include == 1
@@ -179,21 +218,25 @@ save ../data/working_all.dta, replace
 keep if include
 drop if exclude
 
-count
 
+count
 cap drop included_sites
 egen included_sites = tag(icode)
 count if included_sites == 1
-
 cap drop included_months
 egen included_months = tag(icode studymonth)
+
+count
+count if included_sites == 1
 count if included_months == 1
+tab match_is_ok
 
 * No point keeping these vars since they don't mean anything now
 drop include exclude
 drop early_exclude late_exclude
 drop included_sites
 drop included_months
+compress
 codebook, compact
 
 save ../data/working.dta, replace

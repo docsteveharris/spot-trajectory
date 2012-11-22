@@ -27,7 +27,7 @@ Trajectory rarely seems important
 *  = ### Lactate trajectory =
 *  ==========================
 
-global iif_lac if !missing(lac1, lac2) & abs(traj_lac) < 15
+global iif_lac if !missing(lac1, lac2) & abs(lac_traj) < 15
 /*
 NOTE: 2012-11-15 - specification of the population of interest
 makes a big difference
@@ -43,38 +43,42 @@ global iif_lac if !missing(lac1, lac2) & lac1 <20 & lac2 < 20 & lac1>0 & lac2>0
 
 running dead28 lac1 $iif_lac, name(plot1, replace)
 running dead28 lac2 $iif_lac, name(plot2, replace)
-running dead28 traj_lac $iif_lac, name(plot3, replace)
+running dead28 lac_traj $iif_lac, name(plot3, replace)
 graph combine plot1 plot2 plot3, ///
 	row(1) ycommon name(lac_running, replace) ysize(3) xsize(6)
+graph export ../logs/lac_running.pdf, replace
+
 
 /* Would suit a linear spline nicely? single knot at 0 */
 
 logit dead28 lac1 $iif_lac
 logit dead28 lac2 $iif_lac
-logit dead28 traj_lac $iif_lac
-logit dead28 lac1 traj_lac $iif_lac
-logit dead28 lac2 traj_lac $iif_lac
+logit dead28 lac_traj $iif_lac
+logit dead28 lac1 lac_traj $iif_lac
+logit dead28 lac2 lac_traj $iif_lac
 /* lactae trajectory is negative too!! */
-logit dead28 age i.dx_cat lac2 traj_lac $iif_lac
+logit dead28 age i.dx_cat lac2 lac_traj $iif_lac
 /* and effect is stronger with improved adjustment */
-logit dead28 age i.dx_cat c.lac2 c.traj_lac ims2 $iif_lac
+logit dead28 age i.dx_cat c.lac2 c.lac_traj ims2 $iif_lac
 /* no interaction found */
-logit dead28 age i.dx_cat c.lac2##c.traj_lac ims2 $iif_lac
+logit dead28 age i.dx_cat c.lac2##c.lac_traj ims2 $iif_lac
 
 /* fracpoly version */
-logit dead28 age i.dx_cat lac2 traj_lac ims2 $iif_lac
+logit dead28 age i.dx_cat lac2 lac_traj ims2 $iif_lac
 est store fp1
-xi: fracpoly, compare: logit dead28 traj_lac age i.dx_cat lac2  ims2 $iif_lac
+xi: fracpoly, compare: logit dead28 lac_traj age i.dx_cat lac2  ims2 $iif_lac
 est store fp2
 lrtest fp1 fp2
 estimates stats fp1 fp2
-fracplot if traj_lac > -10 & traj_lac < 10, msym(p)
+fracplot if lac_traj > -10 & lac_traj < 10, msym(p)
+graph export ../logs/lac_fracplot.pdf, replace
+
 /* no interaction found */
 
 
 
 cap drop lacsp*
-mkspline lacsp1 0 lacsp2 = traj_lac, displayknots
+mkspline lacsp1 0 lacsp2 = lac_traj, displayknots
 logit dead28 lacsp1 lacsp2 $iif_lac
 /* Much better as a standalone */
 logit dead28 lacsp1 lacsp2 lac2 $iif_lac
@@ -96,7 +100,6 @@ Intepretation is that admission lactate has different effects
 	- better outcome if pre-admission lactate is low
  */
 lrtest m1 m2
-estat stats
 
 /*
 Stratify and create a table of outcomes to check this
@@ -106,7 +109,7 @@ xtile lac2_q5 = lac2 $iif_lac , nq(5)
 tab lac2_q5 $iif_lac
 
 cap drop lac_tr_cat
-egen lac_tr_cat = cut(traj_lac) $iif_lac, at(-40,0,1,2,3,4,5,100) label
+egen lac_tr_cat = cut(lac_traj) $iif_lac, at(-40,0,1,2,3,4,5,100) label
 tab lac_tr_cat
 
 tab lac_tr_cat lac2_q5
@@ -136,6 +139,8 @@ running dead28 pf2 $iif_pf, name(plot2, replace)
 running dead28 pf_traj $iif_pf, name(plot3, replace)
 graph combine plot1 plot2 plot3, ///
 	row(1) ycommon name(pf_running, replace) ysize(3) xsize(6)
+graph export ../logs/pf_running.pdf, replace
+
 
 /*
 So below PF 40 then linear(ish) relation with mortality
@@ -187,6 +192,9 @@ est store fp2
 lrtest fp1 fp2
 estimates stats fp1 fp2
 fracplot if pf_traj > -20 & pf_traj < 20, msym(p)
+graph export ../logs/pf_fracplot.pdf, replace
+
+
 /* Completely flat!!! */
 
 *  ==============
@@ -201,6 +209,8 @@ running dead28 cr2 $iif_cr, name(plot2, replace)
 running dead28 cr_traj $iif_cr, name(plot3, replace)
 graph combine plot1 plot2 plot3, ///
 	row(1) ycommon name(cr_running, replace) ysize(3) xsize(6)
+graph export ../logs/cr_running.pdf, replace
+
 /*
 So usual biphasic relationship betw creat and mortality
 And oddly(?) incr or decr in creatinine is a 'bad' thing
@@ -242,6 +252,8 @@ running dead28 plat2 $iif_plat, name(plot2, replace)
 running dead28 plat_traj $iif_plat, name(plot3, replace)
 graph combine plot1 plot2 plot3, ///
 	row(1) ycommon name(plat_running, replace) ysize(3) xsize(6)
+graph export ../logs/plat_running.pdf, replace
+
 
 /*
 So that is not a straightforward relationship!
@@ -293,14 +305,48 @@ Interaction does not help
 *  = Sodium =
 *  ==========
 su na1 na2 na_traj, d
-global iif_na if na_traj > -10 & na_traj < 10 & na2 >120
+global iif_na if na_traj > -10 & na_traj < 10 & na2 >100
 su na1 na2 na_traj $iif_na
 
 running dead28 na1 $iif_na, name(plot1, replace)
 running dead28 na2 $iif_na, name(plot2, replace)
-running dead28 na_traj $iif_na, name(plot3, replace)
+/* Need to plot trajectory by 'level' */
+tempvar sodium_cat
+local cutpoints 116 136 150 
+local cutpoints_csv = subinstr(trim("`cutpoints'"), " ", ", ", .)
+egen `sodium_cat' = cut(na2), at(`cutpoints_csv') label
+tab `sodium_cat'
+
+local last = wordcount("`cutpoints'")
+forvalues i = 2/`last' {
+	local min = word("`cutpoints'", `i' - 1)
+	local max = word("`cutpoints'", `i')
+	local iif $iif_na & na2 >= `min' & na2 < `max'
+	cap drop qq`i'
+	running dead28 na_traj `iif', nodraw gen(qq`i')
+	local iif $iif_na & na2 >= `min' & na2 < `max' & qq`i' > 0 & qq`i' < 1
+	local tw_command `tw_command' (line qq`i' na_traj `iif')
+}
+sort na_traj
+global tw_command "`tw_command'"
+
+/* rug not v good as it needs jitter, the only visible 'smear' is b/c you divide by days */
+* rug na_traj $iif_na , levels(10) zero(0.05)
+* global rug1 $rugcommand
+twoway $tw_command ///
+	(hist na_traj $iif_na, freq s(-10) w(1) yaxis(2)) ///
+	, ylab(0 1, axis(1)) ytitle("28 day mortality", axis(1)) ///
+	yscale(range(0 5000) axis(2)) ylab(0 1000, axis(2)) ytitle("Frequency", axis(2)) ///
+	legend(order(1 2) label(1 "Na < 136") label(2 "Na >= 136") pos(2) ring(0)) ///
+	name(plot3, replace)
+
+* running dead28 na_traj $iif_na, name(plot3, replace)
 graph combine plot1 plot2 plot3, ///
-	row(1) ycommon name(na_running, replace) ysize(3) xsize(6)
+	row(1) ycommon ysize(3) xsize(6) ///
+	name(na_running, replace)
+
+graph export ../logs/na_running.pdf, replace
+
 
 /*
 More odd pattenrs because v low Na is 'protective' ...
@@ -376,6 +422,7 @@ running dead28 ims_c2 $iif_ims_c, name(plot2, replace)
 running dead28 ims_c_traj $iif_ims_c, name(plot3, replace)
 graph combine plot1 plot2 plot3, ///
 	row(1) ycommon name(ims_c_running, replace) ysize(3) xsize(6)
+graph export ../logs/ims_c_running.pdf, replace
 
 /* ims_c is linear, trajectory has inflexion at 0 */
 logit dead28 ims_c2 $iif_ims_c
@@ -389,6 +436,8 @@ su ims_c_tr_spl* $iif_ims_c
 logit dead28 ims_c_tr_spl1 ims_c_tr_spl2 $iif_ims_c
 /* Negative trajectory has no effect, positive similar to ims_c2 */
 logit dead28 ims_c2 ims_c_tr_spl1 ims_c_tr_spl2 $iif_ims_c
+/* With interaction */
+logit dead28 ims_c2 ims_c_tr_spl1 ims_c_tr_spl2 c.ims_c2#c.ims_c_tr_spl1 c.ims_c2#c.ims_c_tr_spl2 $iif_ims_c
 /*
 Now you see that trajectory and current value are correlated above 0
 And having a flat trajectory is non-significantly protective
@@ -417,6 +466,8 @@ est store m2
 lrtest m1 m2
 estimates stats m1 m2
 fracplot if ims_c_traj > -20 , msym(p)
+graph export ../logs/ims_c_traj_fracplot.pdf, replace
+
 /* So overall fit of fracpoly suggests again that a +ve trajectory is 'good' */
 /* Borderline improvement in fit with trajectory ... basically same story */
 
@@ -428,6 +479,8 @@ est store m2
 lrtest m1 m2
 estimates stats m1 m2
 fracplot if ims_c_traj > -20 , msym(p)
+
+
 /* Same story */
 
 *  =====================================================================
@@ -459,6 +512,8 @@ running dead28 ims_ms2 $iif_ims_ms, name(plot2, replace)
 running dead28 ims_ms_traj $iif_ims_ms, name(plot3, replace)
 graph combine plot1 plot2 plot3, ///
 	row(1) ycommon name(ims_ms_running, replace) ysize(3) xsize(6)
+graph export ../logs/ims_ms_running.pdf, replace
+
 
 /* Similar pattern to compete cases but truncated range of mortality in SPOT */
 logit dead28 ims_ms2 $iif_ims_ms
@@ -509,6 +564,10 @@ est store fp2
 lrtest fp1 fp2
 estimates stats fp1 fp2
 fracplot if ims_ms_traj > -20 , msym(p)
+graph export ../logs/ims_ms_traj_fracplot.pdf, replace
+
+
+
 /* Same story, deteriorating is better than deteriorated */
 /* Now check in cox */
 stcox ims_ms2 age i.dx_cat $iif_ims_ms
@@ -551,7 +610,7 @@ logit dead28 age i.dx_cat ims_ms2 ims_ms_tr_spl1 ims_ms_tr_spl2 c.ims_ms2#c.ims_
 
 /* Alternative specification */
 /* binreg for risk differences and risk ratios */
-binreg dead28 ims_ms2 ims_ms_tr_spl1 ims_ms_tr_spl2 $iif_ims_ms, rd 
+* binreg dead28 ims_ms2 ims_ms_tr_spl1 ims_ms_tr_spl2 $iif_ims_ms, rd 
 /*
 Doesn't converge with default settings - options 'search ml' no help
 */
@@ -585,7 +644,6 @@ running ims_c_delta time2icu if time2icu < 96, msym(p) ci
 regress ims_ms_delta time2icu
 regress ims_c_delta time2icu
 /* Very weak +ve relationship */
-regress ims_ms_c
 
 running dead28 ims_ms_delta $iif_ims_ms
 /* usual inflexion at around -10 - 0 */
@@ -599,3 +657,4 @@ logit dead28 age i.dx_cat time2icu ims_ms2 ims_ms_delta_spl1 ims_ms_delta_spl2 $
 /*
 NOTE: 2012-11-15 - big jumps in ICNARC score seem to be often driven by BP
 */
+cap log off

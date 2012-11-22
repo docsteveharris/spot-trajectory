@@ -528,7 +528,7 @@ gen traj_urin = (urin2 - urin1) / (round(time2icu, 24) + 1)
 label var traj_urin "Urine output slope"
 gen cr_traj = (cr2 - cr1) / (round(time2icu, 24) + 1)
 label var cr_traj "Creatinine slope"
-gen traj_lac = (lac2 - lac1) / (round(time2icu, 24) + 1)
-label var traj_lac "Lactate slope"
-su lac* cr* urin* pf* ims* traj*, sep(2)
+gen lac_traj = (lac2 - lac1) / (round(time2icu, 24) + 1)
+label var lac_traj "Lactate slope"
+su lac* cr* pf* ims* na* *urin* , sep(4)
 
