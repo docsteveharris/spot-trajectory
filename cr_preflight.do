@@ -22,6 +22,8 @@ duplicates example _list_unusual if _count_unusual > 0
 duplicates example _list_imposs if _count_imposs > 0
 
 keep if _valid_row
+* TODO: 2012-11-26 - drop impossible values ... but revisit because these should not exist
+replace lactate = . if lactate < 0
 
 * ==================================================================================
 * = Create study wide generic variables - that are not already made in python code =
@@ -494,8 +496,8 @@ egen ims2_miss = rowmiss(*2_wt)
 tab ims1_miss ims2_miss
 egen ims_c1 = rowtotal(*1_wt) if ims1_miss == 0 & ims2_miss == 0
 egen ims_c2 = rowtotal(*2_wt) if ims1_miss == 0 & ims2_miss == 0
-label var ims_c1 "IMscore - SPOT - complete"
-label var ims_c2 "IMscore - CMPD - complete"
+label var ims_c1 "ICNARC score (complete) - Ward"
+label var ims_c2 "ICNARC score (complete) - ICU"
 gen ims_c_traj = (ims_c2 - ims_c1) / (round(time2icu, 24) + 1)
 label var ims_c_traj "IMscore - complete - slope"
 
@@ -508,10 +510,12 @@ egen ims_ms1 = rowtotal(hr1_wt bps1_wt rr1_wt cr1_wt na1_wt wcc1_wt ///
      temp1_wt urea1_wt) if ims1_miss_some == 0 & ims2_miss_some == 0
 egen ims_ms2 = rowtotal(hr2_wt bps2_wt rr2_wt cr2_wt na2_wt wcc2_wt ///
      temp2_wt urea2_wt) if ims1_miss_some == 0 & ims2_miss_some == 0
-label var ims_ms1 "IMscore - SPOT - miss some"
-label var ims_ms2 "IMscore - CMPD - miss some"
+
+label var ims_ms1 "ICNARC score (partial) - Ward"
+label var ims_ms2 "ICNARC score (partial) - ICU"
+
 gen ims_ms_traj = (ims_ms2 - ims_ms1) / (round(time2icu, 24) + 1)
-label var ims_ms_traj "IMscore - miss some - slope"
+label var ims_ms_traj "ICNARC score (partial) - trajectory"
 su ims_ms_traj, d
 
 

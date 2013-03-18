@@ -60,7 +60,29 @@ bys icode (match_is_ok): gen match_per_site = _freq[2] / (_freq[1] + _freq[2])
 drop if match_is_ok == 0
 su match_per_site,d 
 
-
+*  =======================================
+*  = Understand patterns of missing data =
+*  =======================================
+use ../data/working.dta, clear
+qui include cr_preflight.do
+local vars hr bps temp rr pf ph urea cr na urin wcc gcs
+tempname memhold
+tempfile results
+postfile `memhold' str12 name float(spot cmp both) using `results'
+foreach var of local vars {
+	count if missing(`var'1)
+	local miss1 = r(N) / _N
+	count if missing(`var'2)
+	local miss2 = r(N) / _N
+	count if missing(`var'1, `var'2)
+	local miss1_2 = r(N) / _N
+	post `memhold' ("`var'") (`miss1') (`miss2') (`miss1_2')
+}
+postclose `memhold'
+use `results', clear
+format spot cmp both %9.3g
+sort both
+list
 
 
 cap log close

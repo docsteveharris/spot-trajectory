@@ -390,6 +390,7 @@ Use a global severity measurement ... but handle 1st of all the missing data iss
 use ../data/working.dta, clear
 qui include cr_preflight.do
 /* vars for ICNARC score in (SPOT)light */
+
 misstable summ hr1 bps1 temp1 rr1 pf1 ph1 urea1 cr1 na1 urin1 wcc1 gcs1
 misstable patt hr1 bps1 temp1 rr1 pf1 ph1 urea1 cr1 na1 urin1 wcc1 gcs1, freq
 
