@@ -16,52 +16,50 @@ GenericSetupSteveHarris spot_traj cr_working, logon
 *  =======================================
 *  = Visit level data import from SQL db =
 *  =======================================
-* capture {
 
-	odbc query "`ddsn'", user("`uuser'") pass("`ppass'") verbose
+odbc query "`ddsn'", user("`uuser'") pass("`ppass'") verbose
 
-	clear
-	timer on 1
-	odbc load, exec("SELECT * FROM spot_traj.working_traj")  dsn("`ddsn'") user("`uuser'") pass("`ppass'") lowercase sqlshow clear
-	timer off 1
-	timer list 1
-	count
+clear
+timer on 1
+odbc load, exec("SELECT * FROM spot_traj.working_traj")  dsn("`ddsn'") user("`uuser'") pass("`ppass'") lowercase sqlshow clear
+timer off 1
+timer list 1
+count
 
-	* Merge in site level data
-	preserve
-	include cr_sites.do
-	restore
-	merge m:1 icode using ../data/sites.dta, ///
-		keepusing(heads_tailed* ccot_shift_pattern all_cc_in_cmp ///
-			tails_wardemx* tails_othercc* ///
-			ht_ratio cmp_beds_persite*)
-	drop _m
-
-
-	file open myvars using ../data/scratch/vars.yml, text write replace
-	foreach var of varlist * {
-		di "- `var'" _newline
-		file write myvars "- `var'" _newline
-	}
-	file close myvars
-
-	qui compress
+* Merge in site level data
+preserve
+include cr_sites.do
+restore
+merge m:1 icode using ../data/sites.dta, ///
+	keepusing(heads_tailed* ccot_shift_pattern all_cc_in_cmp ///
+		tails_wardemx* tails_othercc* ///
+		ht_ratio cmp_beds_persite*)
+drop _m
 
 
-	shell ../local/lib_usr/label_stata_fr_yaml.py "../data/scratch/vars.yml" "../local/lib_phd/dictionary_fields.yml"
+file open myvars using ../data/scratch/vars.yml, text write replace
+foreach var of varlist * {
+	di "- `var'" _newline
+	file write myvars "- `var'" _newline
+}
+file close myvars
 
-	capture confirm file ../data/scratch/_label_data.do
-	if _rc == 0 {
-		include ../data/scratch/_label_data.do
-		// shell  rm ../data/scratch/_label_data.do
-		// shell rm ../data/scratch/myvars.yml
-	}
-	else {
-		di as error "Error: Unable to label data"
-		exit
-	}
+qui compress
 
-* }
+
+shell ../ccode/label_stata_fr_yaml.py "../data/scratch/vars.yml" "../local/lib_phd/dictionary_fields.yml"
+
+capture confirm file ../data/scratch/_label_data.do
+if _rc == 0 {
+	include ../data/scratch/_label_data.do
+	// shell  rm ../data/scratch/_label_data.do
+	// shell rm ../data/scratch/myvars.yml
+}
+else {
+	di as error "Error: Unable to label data"
+	exit
+}
+
 save ../data/working_raw.dta, replace
 
 *  ========================
@@ -173,8 +171,6 @@ count
 count if included_sites == 1
 count if included_months == 1
 tab match_is_ok
-
-
 
 *  ==============
 *  = Exclusions =

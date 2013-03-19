@@ -30,7 +30,7 @@ foreach var of varlist * {
 file close myvars
 
 
-shell ../local/lib_usr/label_stata_fr_yaml.py "../data/scratch/vars.yml" "../local/lib_phd/dictionary_fields.yml"
+shell ../ccode/label_stata_fr_yaml.py "../data/scratch/vars.yml" "../local/lib_phd/dictionary_fields.yml"
 
 capture confirm file ../data/scratch/_label_data.do
 if _rc == 0 {
