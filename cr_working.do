@@ -227,6 +227,54 @@ cap drop exclude4
 gen exclude4 = 0
 label var exclude4 "Exclude - data irreconcilable"
 
+* NOTE: 2012-09-27 - get more precise survival timing for those who die in ICU
+* Add one hour though else ICU discharge and last_trace at same time
+* this would mean these records being dropped by stset
+* CHANGED: 2012-10-02 - changed to 23:59:00 from 23:59:59 because of rounding errors
+cap drop last_trace
+gen last_trace = cofd(date_trace) + hms(23,58,00)
+replace last_trace = icu_discharge if dead_icu == 1 & !missing(icu_discharge)
+format last_trace %tc
+label var last_trace "Timestamp last event"
+
+list icode dead dead_icu dod date_trace  ///
+	if ( dod != date_trace | dofc(icu_discharge) > date_trace) ///
+	& dead_icu != dead & dead != . & dod != . & icu_discharge != ., ///
+	sepby(idvisit) table compress
+
+count if dofc(icu_discharge) != date_trace & dead_icu == 1 & dead !=.
+* NB all done at the at hours resolution
+count if floor(hours(icu_admit)) 	> floor(hours(icu_discharge)) & !missing(icu_admit, icu_discharge)
+count if floor(hours(v_timestamp)) > floor(hours(icu_admit)) & !missing(v_timestamp, icu_admit)
+count if floor(hours(v_timestamp)) > floor(hours(icu_discharge)) & !missing(v_timestamp, icu_discharge)
+count if floor(hours(icu_admit)) 	> floor(hours(last_trace)) & !missing(icu_admit, last_trace)
+// CHANGED: 2013-03-28 - change this to a date rather than an hour check since you are imputing hours above
+count if dofc(icu_discharge) > dofc(last_trace) & !missing(icu_discharge, last_trace)
+count if dofc(v_timestamp) > dofc(last_trace) & !missing(v_timestamp, last_trace)
+
+replace exclude4 = 1 if dofc(icu_discharge) != date_trace & dead_icu == 1 & dead !=.
+* NB all done at the at hours resolution
+replace exclude4 = 1 if floor(hours(icu_admit)) 	> floor(hours(icu_discharge)) & !missing(icu_admit, icu_discharge)
+replace exclude4 = 1 if floor(hours(v_timestamp)) > floor(hours(icu_admit)) & !missing(v_timestamp, icu_admit)
+replace exclude4 = 1 if floor(hours(v_timestamp)) > floor(hours(icu_discharge)) & !missing(v_timestamp, icu_discharge)
+replace exclude4 = 1 if floor(hours(icu_admit)) 	> floor(hours(last_trace)) & !missing(icu_admit, last_trace)
+// CHANGED: 2013-03-28 - change this to a date rather than an hour check
+replace exclude4 = 1 if dofc(icu_discharge) > dofc(last_trace) & !missing(icu_discharge, last_trace)
+replace exclude4 = 1 if dofc(v_timestamp) > dofc(last_trace) & !missing(v_timestamp, last_trace)
+
+cap drop included_sites
+egen included_sites = tag(icode) if include == 1 & exclude1 == 0 & exclude2 == 0 & exclude3 == 0 & exclude4 == 0
+count if included_sites == 1
+cap drop included_months
+egen included_months = tag(icode studymonth) if include == 1 & exclude1 == 0 & exclude2 == 0 & exclude3 == 0 & exclude4 == 0
+count if include == 1 & exclude1 == 0 & exclude2 == 0 & exclude3 == 0 & exclude4 == 0
+count if included_sites == 1
+count if included_months == 1
+tab match_is_ok if include == 1 & exclude1 == 0 & exclude2 == 0 & exclude3 == 0 & exclude4 == 0
+
+*  =================================================
+*  = Save working_all before dropping any patients =
+*  =================================================
 save ../data/working_all.dta, replace
 
 keep if include 	== 1
@@ -254,7 +302,5 @@ codebook, compact
 
 save ../data/working.dta, replace
 cap log close
-
-
 
 
