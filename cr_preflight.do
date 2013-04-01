@@ -170,7 +170,7 @@ tab cc_recommended
 gen ccmds_delta = .
 label var ccmds_delta "Recommended level of care"
 replace ccmds_delta = 1 if v_ccmds_rec < v_ccmds
-replace ccmds_delta = 2 if v_ccmds_rec == v_ccmds 
+replace ccmds_delta = 2 if v_ccmds_rec == v_ccmds
 replace ccmds_delta = 3 if v_ccmds_rec > v_ccmds
 label define ccmds_delta 1 "Downgrade"
 label define ccmds_delta 2 "No change", add
@@ -686,13 +686,18 @@ d dx_*
 *  ====================================================
 *  = Derive specific spot-cmpd physiology comparisons =
 *  ====================================================
+/*
+- best to use mean value rather than highest or lowest
+- although in the end you will need to run sensitivity analyses for all
+*/
 
 /* Heart rate */
-cap drop hr1 hr2
+cap drop hr1
 ren hrate hr1
 label var hr1 "Heart rate - SPOT"
-gen hr2 = hhr
-replace hr2 = lhr if hr2 == .
+cap drop hr2
+gen hr2 = (hhr + lhr) / 2 if !missing(hhr,lhr)
+replace hr2 = max(hhr,lhr) if (hhr == . | lhr == .) & hr2 == .
 label var hr1 "Heart rate - CMPD"
 
 
@@ -710,11 +715,12 @@ foreach var of varlist hr1 hr2 {
 
 
 /* BP systolic */
-cap drop bps1 bps2
+cap drop bps1
 rename bpsys bps1
 label var bps1 "SBP - SPOT"
-gen bps2 = lsys
-replace bps2 = hsys if bps2 == .
+cap drop bps2
+gen bps2 = (lsys + hsys) / 2 if !missing(lsys,hsys)
+replace bps2 = min(lsys,hsys) if (lsys == . | hsys == .) & bps2 == .
 label var bps1 "SBP - CMPD"
 
 foreach var of varlist bps1 bps2 {
@@ -754,11 +760,12 @@ foreach var of varlist temp1 temp2 {
 }
 
 /* Respiratory rate */
-cap drop rr1 rr2
+cap drop rr1
 rename rrate rr1
 label var rr1 "Resp rate - SPOT"
-gen rr2 = lnvrr if lnvrr != 0
-replace rr2 = hnvrr if hnvrr != 0 & rr2 == .
+cap drop rr2
+gen rr2 = (lnvrr + hnvrr) / 2 if lnvrr != 0 & !missing(hnvrr, lnvrr)
+replace rr2 = max(hnvrr, lnvrr) if (hnvrr == . | lnvrr ==. ) & (hnvrr != 0 & lnvrr != 0) & rr2 == .
 label var rr2 "Resp rate - CMPD"
 su rr1 rr2
 
@@ -776,7 +783,7 @@ foreach var of varlist rr1 rr2 {
 
 /* P:F ratio */
 cap drop pf1 pf2
-replace pao2 = pao2 / 7.7 if abgunit == 2
+replace pao2 = pao2 / 7.6 if abgunit == 2
 gen pf1 = pao2 / abgfio2 * 100
 gen pf2 = ilpo / filpo
 label var pf1 "P:F ratio - SPOT"
@@ -855,9 +862,11 @@ foreach var of varlist urea1 urea2 {
 }
 
 /* Creatinine */
-cap drop cr1 cr2
+cap drop cr1
 rename creatinine cr1
-gen cr2 = hcreat
+cap drop cr2
+gen cr2 = (hcreat + lcreat) / 2 if !missing(hcreat, lcreat)
+replace cr2 = max(hcreat, lcreat) if cr2 == . 
 replace cr2 = lcreat if missing(hcreat)
 label var cr1 "Creatinine - SPOT"
 label var cr2 "Creatinine - CMPD"
@@ -932,11 +941,12 @@ foreach var of varlist urin1 urin2 {
 }
 
 /* White cell count */
-cap drop wcc1 wcc2
+cap drop wcc1
 ren wcc wcc1
 label var wcc1 "WCC - SPOT"
-gen wcc2 = hwbc
-replace wcc2 = lwbc if wcc2 == .
+cap drop wcc2
+gen wcc2 = (hwbc + lwbc) / 2 if !missing(hwbc, lwbc)
+replace wcc2 = max(hwbc, lwbc) if wcc2 == .
 label var wcc2 "WCC - CMPD"
 su wcc1 wcc2
 
