@@ -698,7 +698,7 @@ label var hr1 "Heart rate - SPOT"
 cap drop hr2
 gen hr2 = (hhr + lhr) / 2 if !missing(hhr,lhr)
 replace hr2 = max(hhr,lhr) if (hhr == . | lhr == .) & hr2 == .
-label var hr1 "Heart rate - CMPD"
+label var hr2 "Heart rate - CMPD"
 
 
 foreach var of varlist hr1 hr2 {
@@ -721,7 +721,7 @@ label var bps1 "SBP - SPOT"
 cap drop bps2
 gen bps2 = (lsys + hsys) / 2 if !missing(lsys,hsys)
 replace bps2 = min(lsys,hsys) if (lsys == . | hsys == .) & bps2 == .
-label var bps1 "SBP - CMPD"
+label var bps2 "SBP - CMPD"
 
 foreach var of varlist bps1 bps2 {
     cap drop `var'_wt
@@ -1036,13 +1036,33 @@ gen ims_ms_traj = (ims_ms2 - ims_ms1) / (round(time2icu, 24) + 1)
 label var ims_ms_traj "ICNARC score (partial) - trajectory"
 su ims_ms_traj, d
 
+*  =======================================================
+*  = Define a bastardised NEWS score for ward and ICNARC =
+*  =======================================================
 
+cap drop news1 news2
+// respiratory rate
+foreach var of varlist rr1 rr2 {
+    cap drop `var'_wt_news
+    gen `var'_wt_news = .
+    replace `var'_wt_news = 3 if `var' <= 8 & `var'_wt_news == .
+    replace `var'_wt_news = 1 if `var' <= 11 & `var'_wt_news == .
+    replace `var'_wt_news = 0 if `var' <= 20 & `var'_wt_news == .
+    replace `var'_wt_news = 2 if `var' <= 24 & `var'_wt_news == .
+    replace `var'_wt_news = 5 if `var' > 25 & `var'_wt_news == .
+    replace `var'_wt_news = . if `var' >= .
+    bys `var'_wt_news: su `var'
+}
+su rr*_news
 
+// oxygen saturations
+* cap drop sats1_wt_news sats2_wt_news
+* replace sats1_wt_news = 2 if fio2_std
 
 *  ================
 *  = Trajectories =
 *  ================
-cap drop pf_traj traj_urin cr_traj
+cap drop pf_traj traj_urin cr_traj urea_traj
 drop pf_ratio
 gen pf_traj = (pf2 - pf1) / (round(time2icu, 24) + 1)
 label var pf_traj "P:F slope"
@@ -1053,5 +1073,26 @@ label var cr_traj "Creatinine slope"
 gen lac_traj = (lac2 - lac1) / (round(time2icu, 24) + 1)
 label var lac_traj "Lactate slope"
 su lac* cr* pf* ims* na* *urin* , sep(4)
+gen urea_traj = (urea2 - urea1) / (round(time2icu, 24) + 1)
+label var urea_traj "Urea slope"
 
+*  ======================
+*  = Define populations =
+*  ======================
+global iif_lac if lac1 < 10 & lac2 < 10 & lac1 >=0 & lac2 >=0 & abs(lac_traj < 10)
+gen pop_lac = 0
+replace pop_lac = 1 $iif_lac
+label var pop_lac "Lactate trajectory population"
+global iif_ims_c if !missing(ims_c1, ims_c2) & abs(ims_c_traj) < 20
+gen pop_ims_c = 0
+replace pop_ims_c = 1 $iif_ims_c
+label var pop_ims_c "ICNARC complete trajectory population"
+global iif_ims_ms if !missing(ims_ms1, ims_ms2) & abs(ims_ms_traj) < 20
+gen pop_ims_ms = 0
+replace pop_ims_ms = 1 $iif_ims_ms
+label var pop_ims_c "ICNARC partial trajectory population"
+
+
+
+cap drop __*
 save ../data/working_postflight.dta, replace
