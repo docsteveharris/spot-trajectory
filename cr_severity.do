@@ -197,11 +197,12 @@ foreach var of varlist wcc1 wcc2 {
 * NOTE: 2012-11-15 - does not include the weighting for sedated or paralysed
 foreach var of varlist gcs1 gcs2 {
     cap drop `var'_wt
-    gen `var'_wt = .
-    replace `var'_wt = 11 if `var' <= 3 & `var'_wt == .
-    replace `var'_wt = 9 if `var' <= 4 & `var'_wt == .
-    replace `var'_wt = 6 if `var' <= 5 & `var'_wt == .
-    replace `var'_wt = 4 if `var' <= 6 & `var'_wt == .
+    // CHANGED: 2013-04-06 - default weight zero (but still missing if var is missing)
+    gen `var'_wt = 0
+    replace `var'_wt = 11 if `var' == 3 & `var'_wt == .
+    replace `var'_wt = 9 if `var' == 4 & `var'_wt == .
+    replace `var'_wt = 6 if `var' == 5 & `var'_wt == .
+    replace `var'_wt = 4 if `var' == 6 & `var'_wt == .
     replace `var'_wt = 2 if `var' <= 13 & `var'_wt == .
     replace `var'_wt = 1 if `var' <= 14 & `var'_wt == .
     replace `var'_wt = 0 if `var' == 15 & `var'_wt == .

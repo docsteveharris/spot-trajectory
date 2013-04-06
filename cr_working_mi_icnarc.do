@@ -200,6 +200,12 @@ mi impute chained ///
 	, ///
 	add($n_imputations) replace dots augment
 
+// CHANGED: 2013-04-06 - now recover the original pre-vars from the differences
+foreach var of global pre_vars {
+	cap drop `var'1
+	gen `var'1 = `var'2 - `var'_d
+}
+
 save ../data/working_mi_icnarc_plus_surv, replace
 
 exit
