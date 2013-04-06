@@ -12,7 +12,7 @@ Use MI data and complete cases
 */
 
 /* ICNARC complete - univariate */
-use ../data/working_postflight_mi.dta, clear
+use ../data/working_postflight_mi_plus.dta, clear
 su ims_c2 ims_c1 ims_c_traj if m0
 
 /* Plot distribution of trajectory */
@@ -31,7 +31,7 @@ tw  ///
 	ytitle("Patients (%)") ///
 	ylabel(0(5)20) ///
 	xlabel(-30(10)30) ///
-	xtitle("Change in ICNARC Acute Physiology Score" ///
+	xtitle("Change from pre-admission ICNARC score" ///
 			"(1{superscript:st} 24 hour value - ward assessment value)") ///
 	text(19 `tsd_n' "Neutral", placement(c) size(small)) ///
 	text(19 `tsd_w' "Worsening" "severity", placement(c) size(small)) ///
@@ -52,7 +52,7 @@ graph export ../outputs/figures/ims_c_traj_italian.pdf ///
 Use MI data and avergae as per Rubin
 */
 
-use ../data/working_postflight_mi.dta, clear
+use ../data/working_postflight_mi_plus.dta, clear
 
 su ims_c_traj if m0, d
 global tsd = r(sd)
@@ -157,9 +157,9 @@ tw ///
 	xlabel(-30(10)30) ///
 	legend(off) ///
 	ysize(8) xsize(8) ///
-	xtitle("Change in ICNARC Acute Physiology Score" ///
+	xtitle("Change from pre-admission ICNARC score" ///
 			, size(small)) ///
-	ytitle("ICNARC Acute Physiology Score" ///
+	ytitle("ICNARC score" ///
 			"1{superscript:st} 24 hour value", size(small)) ///
 	text(57 `tsd_n'  "Neutral", placement(c) size(vsmall)) ///
 	text(57 `tsd_w'  "Worsening" "severity", placement(c) size(vsmall)) ///

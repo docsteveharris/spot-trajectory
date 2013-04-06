@@ -19,7 +19,7 @@ su lac2 lac1 lac_traj if m0
 /* Plot distribution of trajectory */
 
 su lac_traj if m0, d
-local tsd = r(sd)
+global tsd = r(sd)
 local tsd_n = 0
 local tsd_i = (-1 *   r(sd) / 2)
 local tsd_w = (+1 *   r(sd) / 2)
@@ -53,7 +53,7 @@ graph export ../outputs/figures/lac_traj_italian.pdf ///
 Use MI data and avergae as per Rubin
 */
 
-use ../data/working_postflight_mi.dta, clear
+use ../data/working_postflight_mi_plus.dta, clear
 
 su lac_traj if m0, d
 global tsd = r(sd)
@@ -63,8 +63,8 @@ local imputations = r(max)
 drop if m0
 keep if !missing(lac_traj)
 cap drop c2_k traj
-egen traj = cut(lac_traj), at(-25(5)25)
-egen c2_k = cut(lac2), at(0(5)50)
+egen traj = cut(lac_traj), at(-10(1)10)
+egen c2_k = cut(lac2), at(0(1)20)
 collapse (count) n = id, by(traj c2_k)
 replace n = round(n/`imputations')
 
@@ -134,10 +134,10 @@ replace mcolor = 15 if mcolor >= 16 & mcolor != .
 su mcolor
 local max = r(max)
 forvalues i = 0/`max' {
-	if `i' < 4 local msize huge
-	if `i' < 8 & `i' >= 4 local msize vlarge
-	if `i' < 12 & `i' >= 8 local msize large
-	if `i' < 16 & `i' >= 12 local msize large
+	if `i' < 4 local msize vlarge
+	if `i' < 8 & `i' >= 4 local msize large
+	if `i' < 12 & `i' >= 8 local msize medlarge
+	if `i' < 16 & `i' >= 12 local msize medlarge
 	local plot (scatter c2_k traj if mcolor == `i', msymbol(S) mcolor(gs`i') msize(`msize') )
 	local plots `plots' `plot'
 }
@@ -145,31 +145,31 @@ di "`plots'"
 global plots = ""
 global plots `plots'
 
-local tsd_n = -1*   $tsd / 2
-local tsd_i = (-1*   $tsd / 2) - (2 * $tsd)
-local tsd_w = (-1*   $tsd / 2) + (2 * $tsd)
+local tsd_n = 0
+local tsd_i = (-1 *   $tsd) / 2
+local tsd_w = (+1 *   $tsd) / 2
 
 tw ///
-	(function y=60, range(-30 -$tsd) recast(area) fintensity(inten10) color("49 163 84") base(0.1)) ///
-	(function y=60, range(0 30) recast(area) fintensity(inten10) color("215 48 31") base(0.1)) ///
+	(function y=20, range(-10 -$tsd) recast(area) fintensity(inten10) color("49 163 84") base(0.1)) ///
+	(function y=20, range(0 10) recast(area) fintensity(inten10) color("215 48 31") base(0.1)) ///
 	$plots ///
 	, ///
-	ylabel(0(10)60) ///
-	xlabel(-30(10)30) ///
+	ylabel(0(5)20) ///
+	xlabel(-10(5)10) ///
 	legend(off) ///
 	ysize(8) xsize(8) ///
-	xtitle("Change in ICNARC Acute Physiology Score" ///
+	xtitle("Change from pre-admission lactate" ///
 			, size(small)) ///
-	ytitle("ICNARC Acute Physiology Score" ///
+	ytitle("Lactate" ///
 			"1{superscript:st} 24 hour value", size(small)) ///
-	text(57 `tsd_n'  "Neutral", placement(c) size(vsmall)) ///
-	text(57 `tsd_w'  "Worsening" "severity", placement(c) size(vsmall)) ///
-	text(57 `tsd_i'  "Improving" "severity", placement(c) size(vsmall)) 
+	text(19 0  "Neutral", placement(c) size(vsmall)) ///
+	text(19 5  "Worsening" "severity", placement(c) size(vsmall)) ///
+	text(19 -5  "Improving" "severity", placement(c) size(vsmall)) 
 
 
 
-graph rename ims_biv_italian, replace
-graph display ims_biv_italian
-graph export ../outputs/figures/ims_biv_italian.pdf ///
-    , name(ims_biv_italian) replace
+graph rename lac_biv_italian, replace
+graph display lac_biv_italian
+graph export ../outputs/figures/lac_biv_italian.pdf ///
+    , name(lac_biv_italian) replace
 
