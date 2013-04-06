@@ -229,16 +229,17 @@ if !missing(r(varlist)) {
 *  = Create your own ICNARC scores =
 *  =================================
 cap drop ims1_miss ims2_miss ims_c1 ims_c2 ims_c_traj ims1_miss ims2_miss
+
 /* NOTE: 2012-11-15 - egen rowmiss does not catch .a, .b etc */
 egen ims1_miss = rowmiss(*1_wt)
 egen ims2_miss = rowmiss(*2_wt)
 tab ims1_miss ims2_miss
+
 egen ims_c1 = rowtotal(*1_wt) if ims1_miss == 0 & ims2_miss == 0
-egen ims_c2 = rowtotal(*2_wt) if ims1_miss == 0 & ims2_miss == 0
 label var ims_c1 "ICNARC score (complete) - Ward"
+egen ims_c2 = rowtotal(*2_wt) if ims1_miss == 0 & ims2_miss == 0
 label var ims_c2 "ICNARC score (complete) - ICU"
-gen ims_c_traj = (ims_c2 - ims_c1) / (round(time2icu, 24) + 1)
-label var ims_c_traj "IMscore - complete - slope"
+
 
 cap drop ims1_miss_some ims2_miss_some ims_ms1 ims_ms2 ims_ms_traj
 egen ims1_miss_some = rowmiss(hr1 bps1 rr1 cr1 na1 wcc1 temp1 urea1)
@@ -253,9 +254,13 @@ egen ims_ms2 = rowtotal(hr2_wt bps2_wt rr2_wt cr2_wt na2_wt wcc2_wt ///
 label var ims_ms1 "ICNARC score (partial) - Ward"
 label var ims_ms2 "ICNARC score (partial) - ICU"
 
-gen ims_ms_traj = (ims_ms2 - ims_ms1) / (round(time2icu, 24) + 1)
+local traj_x 12
+cap drop ims_c_traj
+gen ims_c_traj = (ims_c2 - ims_c1) / (round(time2icu, `traj_x') + 1)
+label var ims_c_traj "IMscore - complete - slope"
+cap drop ims_ms_traj
+gen ims_ms_traj = (ims_ms2 - ims_ms1) / (round(time2icu, `traj_x') + 1)
 label var ims_ms_traj "ICNARC score (partial) - trajectory"
-su ims_ms_traj, d
 
 *  =======================================================
 *  = Define a bastardised NEWS score for ward and ICNARC =

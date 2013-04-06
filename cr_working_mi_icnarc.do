@@ -31,13 +31,17 @@ qui include cr_preflight.do
 use ../data/working_postflight.dta, clear
 set scheme shbw
 set seed 3001
-local n_imputations 10
+global n_imputations 10
 * sample 500, count
 
 /* Complete observed vars (NB dx_cat missing in 14) */
 // NOTE: 2013-04-04 - ignoring hierarchical structure for now
-local complete_vars age sex dx_cat time2icu
+local complete_vars age sex dx_cat time2icu 
 keep if !missing(age, sex, dx_cat, dead28, time2icu)
+
+save ../data/scratch/scratch.dta, replace
+use ../data/scratch/scratch.dta, clear
+
 global complete_vars `complete_vars'
 
 /* ICNARC model vars */
@@ -58,15 +62,12 @@ global other_vars ///
 
 global mi_vars `im_vars' `severity_vars' 
 
-/* Royston recommend using NA (Cumulative hazard function) if survival modelling */
-cap drop NA
-sts gen NA = na
-local surv_vars _d NA
-stset, clear
 
 /* Work with a logistic outcome model for now */
 local out_vars dead28
 global out_vars `out_vars'
+/* MI checks that the data is not stset */
+stset, clear
 
 /* Work just with the components of the ICNARC score for now */
 keep icode icnno id $complete_vars $out_vars $mi_vars $other_vars
@@ -89,7 +90,7 @@ misstable summarize $mi_vars
 /* While testing this let's pretend you are just working with P:F ratio */
 cap mi extract 0, clear
 mi set flong
-mi register passive $other_vars
+mi register passive $other_vars `surv_passive'
 mi register imputed $mi_vars
 mi register regular $complete_vars $out_vars
 
@@ -98,9 +99,6 @@ mi register regular $complete_vars $out_vars
 * collin $mi_vars
 
 /* Multiple imputation step */
-// NOTE: 2013-04-04 - force option specified - seems to struggle with some urine and pf??
-// because I have large SE in the model?
-// see http://bit.ly/XSjZBK
 mi impute chained ///
 	(pmm) ///
 	hr1 hr2 ///
@@ -120,8 +118,67 @@ mi impute chained ///
 	gcs1 gcs2 ///
 	= age sex dead28 i.dx_cat time2icu ///
 	, ///
-	add(`n_imputations') replace dots augment
+	add($n_imputations) replace dots augment
 
 save ../data/working_mi_icnarc_plus, replace
+
+*  ================================
+*  = Now repeat for survival data =
+*  ================================
+use ../data/scratch/scratch.dta, clear
+
+/* Royston recommend using NA (Cumulative hazard function) and _d if survival modelling */
+cap drop NA
+sts gen NA = na
+local surv_regular _d NA
+local surv_passive _st _origin _t _t0
+local out_vars `surv_regular'
+global out_vars `out_vars'
+drop if missing(_d, NA)
+
+misstable summarize $mi_vars, gen(mv_)
+// NOTE: 2013-04-04 - you have *hard* missing values for some vars
+// these are not eligible for imputation by stata
+// you must set them to soft missing first
+
+foreach var of global mi_vars {
+	replace `var' = . if `var' >= .
+}
+misstable summarize $mi_vars $out_vars
+
+/* Work just with the components of the ICNARC score for now */
+keep icode icnno id $complete_vars $out_vars $mi_vars $other_vars `surv_passive'
+order icode icnno id $out_vars $complete_vars $mi_vars $other_vars `surv_passive'
+
+
+cap mi extract 0, clear
+mi set flong
+mi register passive $other_vars
+mi register imputed $mi_vars
+mi register regular $complete_vars $out_vars
+
+/* Multiple-imputation for survival data */
+mi impute chained ///
+	(pmm) ///
+	hr1 hr2 ///
+	bps1 bps2 ///
+	temp1 temp2 ///
+	rr1 rr2 ///
+	urea1 urea2 ///
+	cr1 cr2 ///
+	na1 na2 ///
+	wcc1 wcc2 ///
+	urin1 urin2 ///
+	pf1 pf2 ///
+	ph1 ph2 ///
+	lac1 lac2 ///
+	plat1 plat2 ///
+	(ologit, ascontinuous) ///
+	gcs1 gcs2 ///
+	= age sex _d NA i.dx_cat time2icu ///
+	, ///
+	add($n_imputations) replace dots augment
+
+save ../data/working_mi_icnarc_plus_surv, replace
 
 exit
