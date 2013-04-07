@@ -37,7 +37,7 @@ label var site "Study site"
 
 set seed 3001
 
-stset date_trace, origin(time daicu) failure(dead) exit(time daicu+28)
+stset date_trace, id(id) origin(time daicu) failure(dead) exit(time daicu+28)
 
 
 count if _valid_row == 0

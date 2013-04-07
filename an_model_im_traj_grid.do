@@ -151,13 +151,13 @@ mi estimate, esampvaryok esample(esample) ///
 est store mi_traj_grid
 
 est restore mi_traj_grid
-est describe
-global mi_est_cmdline `=r(cmdline)'
 
 **************************************************
 /* HACK TO GET MARGINS TO WORK AFTER MI COMMAND */
 // via http://bit.ly/10CEKNU
 
+est describe
+global mi_est_cmdline `=r(cmdline)'
 /* First specify the margins command HERE */
 global margins_cmd "margins, at(ims_c_traj = (-10(2)10))"
 cap program drop myret
