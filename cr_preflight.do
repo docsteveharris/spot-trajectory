@@ -591,34 +591,6 @@ label var ims2 "ICNARC score (CMPD)"
 NOTE: 2012-11-12 - this assumes that
 all ICNARC scores within the 1st 24 hours are equivalent
 */
-gen delta = ims2 - ims1
-label var delta "ICNARC score delta (total diff)"
-gen ims_traj = (ims2 - ims1) / (round(time2icu, 24) +1)
-label var ims_traj "ICNARC score trajectory (per day)"
-
-cap drop traj_cat
-cap drop ims_traj_cat
-gen ims_traj_cat = .
-replace ims_traj_cat =  1   if ims_traj <= -10 & ims_traj_cat == .
-replace ims_traj_cat =  2   if ims_traj <= -5 & ims_traj_cat == .
-replace ims_traj_cat =  3   if ims_traj <= -2 & ims_traj_cat == .
-replace ims_traj_cat =  4   if ims_traj <=  1 & ims_traj_cat == .
-replace ims_traj_cat =  5   if ims_traj <=  4 & ims_traj_cat == .
-replace ims_traj_cat =  6   if ims_traj <=  9 & ims_traj_cat == .
-replace ims_traj_cat =  7   if ims_traj <=  14 & ims_traj_cat == .
-replace ims_traj_cat =  8   if ims_traj >   14 & ims_traj_cat == .
-cap label drop ims_traj_cat
-label define ims_traj_cat ///
-        1 "Decr - fast" ///
-        2 "Decr - med" ///
-        3 "Decr - slow" ///
-        4 "No change" ///
-        5 "Incr - slow" ///
-        6 "Incr - med" ///
-        7 "Incr - fast" ///
-        8 "Incr - extreme"
-label values ims_traj_cat ims_traj_cat
-tab ims_traj_cat
 
 
 /*
@@ -759,8 +731,6 @@ replace na2 = .a if na2 < 80
 ren sodium na1
 label var na1 "Sodium - SPOT"
 replace na1 = .a if na1 < 80
-gen na_traj = (na2 - na1) / (round(time2icu, 24) + 1)
-label var na_traj "Sodium slope"
 
 cap drop urin1 urin2
 rename uvol1h urin1
@@ -812,8 +782,6 @@ ren lpc plat2
 ren platelets plat1
 label var plat1 "Platelets - SPOT"
 label var plat2 "Platelets - CMPD"
-gen plat_traj = (plat2 - plat1) / (round(time2icu, 24) + 1)
-label var plat_traj "Platelets slope"
 
 // Prepare your own severity scores etc
 include cr_severity.do

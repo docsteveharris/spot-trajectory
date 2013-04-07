@@ -229,9 +229,10 @@ if !missing(r(varlist)) {
 *  =================================
 *  = Create your own ICNARC scores =
 *  =================================
-cap drop ims1_miss ims2_miss ims_c1 ims_c2 ims_c_traj ims1_miss ims2_miss
 
+// Complete scores only
 /* NOTE: 2012-11-15 - egen rowmiss does not catch .a, .b etc */
+cap drop ims1_miss ims2_miss ims_c1 ims_c2 ims_c_traj
 egen ims1_miss = rowmiss(*1_wt)
 egen ims2_miss = rowmiss(*2_wt)
 tab ims1_miss ims2_miss
@@ -242,6 +243,7 @@ egen ims_c2 = rowtotal(*2_wt) if ims1_miss == 0 & ims2_miss == 0
 label var ims_c2 "ICNARC score (complete) - ICU"
 
 
+// Partial (drops GCS, urine, pH, and PF)
 cap drop ims1_miss_some ims2_miss_some ims_ms1 ims_ms2 ims_ms_traj
 egen ims1_miss_some = rowmiss(hr1 bps1 rr1 cr1 na1 wcc1 temp1 urea1)
 egen ims2_miss_some = rowmiss(hr2 bps2 rr2 cr2 na2 wcc2 temp2 urea2)
@@ -255,13 +257,20 @@ egen ims_ms2 = rowtotal(hr2_wt bps2_wt rr2_wt cr2_wt na2_wt wcc2_wt ///
 label var ims_ms1 "ICNARC score (partial) - Ward"
 label var ims_ms2 "ICNARC score (partial) - ICU"
 
-local traj_x 12
-cap drop ims_c_traj
-gen ims_c_traj = (ims_c2 - ims_c1) / (round(time2icu, `traj_x') + 1)
-label var ims_c_traj "IMscore - complete - slope"
-cap drop ims_ms_traj
-gen ims_ms_traj = (ims_ms2 - ims_ms1) / (round(time2icu, `traj_x') + 1)
-label var ims_ms_traj "ICNARC score (partial) - trajectory"
+// Partial with ABG (drops GCS, urine)
+cap drop ims1_miss_abg ims2_miss_abg ims_abg1 ims_abg2 ims_abg_traj
+egen ims1_miss_abg = rowmiss(hr1 bps1 rr1 cr1 na1 wcc1 temp1 urea1 pf1 ph1)
+egen ims2_miss_abg = rowmiss(hr2 bps2 rr2 cr2 na2 wcc2 temp2 urea2 pf1 ph1)
+tab ims1_miss_abg ims2_miss_abg
+
+egen ims_abg1 = rowtotal(hr1_wt bps1_wt rr1_wt cr1_wt na1_wt wcc1_wt ///
+     temp1_wt urea1_wt ph1_wt pf1_wt) if ims1_miss_abg == 0 & ims2_miss_abg == 0
+egen ims_abg2 = rowtotal(hr2_wt bps2_wt rr2_wt cr2_wt na2_wt wcc2_wt ///
+     temp2_wt urea2_wt ph1_wt pf1_wt) if ims1_miss_abg == 0 & ims2_miss_abg == 0
+
+label var ims_abg1 "ICNARC score (+ABG) - Ward"
+label var ims_abg2 "ICNARC score (+ABG) - ICU"
+
 
 *  =======================================================
 *  = Define a bastardised NEWS score for ward and ICNARC =
@@ -289,15 +298,46 @@ label var ims_ms_traj "ICNARC score (partial) - trajectory"
 *  ================
 *  = Trajectories =
 *  ================
-cap drop pf_traj traj_urin cr_traj urea_traj
-gen pf_traj = (pf2 - pf1) / (round(time2icu, 24) + 1)
+local traj_x 12
+
+cap drop ims_c_traj
+gen ims_c_traj = (ims_c2 - ims_c1) / (round(time2icu, `traj_x') + 1)
+label var ims_c_traj "IMscore - complete - slope"
+
+cap drop ims_ms_traj
+gen ims_ms_traj = (ims_ms2 - ims_ms1) / (round(time2icu, `traj_x') + 1)
+label var ims_ms_traj "ICNARC score (partial) - trajectory"
+
+cap drop ims_abg_traj
+gen ims_abg_traj = (ims_abg2 - ims_abg1) / (round(time2icu, `traj_x') + 1)
+label var ims_abg_traj "ICNARC score (+ABG) - trajectory"
+
+cap drop pf_traj
+gen pf_traj = (pf2 - pf1) / (round(time2icu, `traj_x') + 1)
 label var pf_traj "P:F slope"
-gen traj_urin = (urin2 - urin1) / (round(time2icu, 24) + 1)
+
+cap drop traj_urin
+gen traj_urin = (urin2 - urin1) / (round(time2icu, `traj_x') + 1)
 label var traj_urin "Urine output slope"
-gen cr_traj = (cr2 - cr1) / (round(time2icu, 24) + 1)
+
+cap drop cr_traj
+gen cr_traj = (cr2 - cr1) / (round(time2icu, `traj_x') + 1)
 label var cr_traj "Creatinine slope"
-gen lac_traj = (lac2 - lac1) / (round(time2icu, 24) + 1)
+
+cap drop lac_traj
+gen lac_traj = (lac2 - lac1) / (round(time2icu, `traj_x') + 1)
 label var lac_traj "Lactate slope"
-su lac* cr* pf* ims* na* *urin* , sep(4)
-gen urea_traj = (urea2 - urea1) / (round(time2icu, 24) + 1)
+
+cap drop urea_traj
+gen urea_traj = (urea2 - urea1) / (round(time2icu, `traj_x') + 1)
 label var urea_traj "Urea slope"
+
+cap drop na_traj
+gen na_traj = (na2 - na1) / (round(time2icu, 24) + 1)
+label var na_traj "Sodium slope"
+
+cap drop plat_traj
+gen plat_traj = (plat2 - plat1) / (round(time2icu, 24) + 1)
+label var plat_traj "Platelets slope"
+
+* su lac* cr* pf* ims* na* *urin* , sep(4)
