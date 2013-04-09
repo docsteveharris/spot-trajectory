@@ -7,10 +7,16 @@ modified:	130408
 
 Examine trajectory in a region where constraints should not matter
 Specifically avoided vars that have a non-linear relationship with mortality
+Focus on
+- CVS: Lactate (as marker of severity, metabolic and CVS stress)
+- AKI: Creatinine
+- Resp: PF
+- Platelets: Haem (in SOFA, and unmodifiable)
 
+Define a population in which none of these are missing
 */
 
-GenericSetupSteveHarris spot_traj an_model_raw_monly, logon
+GenericSetupSteveHarris spot_traj an_model_raw, logon
 
 *  ============================
 *  = Bring in the MI data set =
@@ -41,7 +47,21 @@ program emargins, eclass properties(mi)
 	$margins_cmd post
 end
 
-local physiology_vars lac cr plat pf ims_c
+
+mi misstable patterns lac_traj cr_traj plat_traj pf_traj, freq
+cap drop touse
+gen touse = !missing(lac_traj, cr_traj, plat_traj, pf_traj)
+label var touse "Comparison population"
+
+/* Trick to make sure platelets move in the same direction as everything else
+	i.e. high is worse */
+
+su plat1 plat2
+replace plat2 = 1500 - plat2
+replace plat1 = 1500 - plat1
+replace plat_traj = -1 * plat_traj
+
+local physiology_vars lac cr plat pf
 
 foreach pvar of local physiology_vars {
 	if "`pvar'" == "lac" local var_label Lactate
@@ -58,13 +78,13 @@ foreach pvar of local physiology_vars {
 	spikeplot `pvar'_traj if m0, name(pt, replace) nodraw
 	graph combine p1 p2 pt, col(1)
 
-	su `pvar'1 `pvar'2 `pvar'_traj, d
+	su `pvar'1 `pvar'2 `pvar'_traj if touse, d
 
 	/* Transform? */
 	cap drop `pvar'2_bc
-	bcskew0 `pvar'2_bc =`pvar'2, level(90)
+	bcskew0 `pvar'2_bc =`pvar'2 if touse, level(90)
 	global bc_lambda = r(lambda)
-	su `pvar'2 `pvar'2_bc, d
+	su `pvar'2 `pvar'2_bc if touse, d
 
 	/* 	Now define Low-Medium-High risk categories based on quartiles
 		Alternatively you can define this by coming 'in' from the extremes of the 2nd value
@@ -75,7 +95,7 @@ foreach pvar of local physiology_vars {
 	*/
 
 	cap drop `pvar'2_k
-	qui su `pvar'2_bc, d
+	qui su `pvar'2_bc if touse, d
 	local min = r(min) - 1 // subtract 1 b/c egen cut does not use the boundary
 	local max = r(max) + 1 // ditto
 	egen `pvar'2_k = cut(`pvar'2_bc), at(`min' `=r(p25)'  `=r(p75)' `max' ) icodes
@@ -84,17 +104,17 @@ foreach pvar of local physiology_vars {
 	cap label drop `pvar'2_k
 	label define `pvar'2_k 1 "Low risk" 2 "Medium risk" 3 "High risk"
 	label values `pvar'2_k `pvar'2_k
-	tab `pvar'2_k if m0
+	tab `pvar'2_k if m0 & touse
 
-	tabstat dead28 if m0, by(`pvar'2_k) s(n mean sd ) format(%9.3g)
-	tabstat `pvar'_traj if m0, by(`pvar'2_k) s(n mean sd q) format(%9.3g)
+	tabstat dead28 if m0 & touse, by(`pvar'2_k) s(n mean sd ) format(%9.3g)
+	tabstat `pvar'_traj if m0 & touse, by(`pvar'2_k) s(n mean sd q) format(%9.3g)
 
 	/* 	Now define trajectory classes
 		Use 0 as the centre and a symmetrical region around it
 		Use the 0.5 standard deviations above and below it
 	*/
 
-	su `pvar'_traj if m0, d
+	su `pvar'_traj if m0 & touse, d
 	global boundary = r(sd)/2
 	cap drop `pvar'_tclass
 	gen `pvar'_tclass = 0 if `pvar'_traj != .
@@ -125,8 +145,8 @@ foreach pvar of local physiology_vars {
 	replace `pvar'_tclass = . if missing(`pvar'_traj, `pvar'2_k)
 	label values `pvar'_tclass `pvar'_tclass
 
-	tab `pvar'_tclass if m0
-	tabstat `pvar'_traj if m0, by(`pvar'_tclass) s(n mean sd q) format(%9.3g)
+	tab `pvar'_tclass if m0 & touse
+	tabstat `pvar'_traj if m0 & touse, by(`pvar'_tclass) s(n mean sd q) format(%9.3g)
 
 	cap drop `pvar'_tvector
 	gen `pvar'_tvector = .
@@ -140,11 +160,11 @@ foreach pvar of local physiology_vars {
 	label define `pvar'_tvector 3 "Deteriorating", add
 	label values `pvar'_tvector `pvar'_tvector
 
-	tab `pvar'2_k `pvar'_tvector if m0
-	table `pvar'2_k `pvar'_tvector if m0, contents(p25 `pvar'_traj p75 `pvar'_traj)
+	tab `pvar'2_k `pvar'_tvector if m0 & touse
+	table `pvar'2_k `pvar'_tvector if m0 & touse, contents(p25 `pvar'_traj p75 `pvar'_traj)
 
-	dotplot `pvar'_traj, over(`pvar'2_k)
-	dotplot `pvar'_traj, over(`pvar'_tvector)
+	dotplot `pvar'_traj if m0 & touse, over(`pvar'2_k)
+	dotplot `pvar'_traj if m0 & touse, over(`pvar'_tvector)
 
 	//  ==============
 	//  = Grid model =
@@ -153,9 +173,9 @@ foreach pvar of local physiology_vars {
 
 	/* Complete cases estimate */
 
-	logistic dead28 ib1.`pvar'2_k##ib1.`pvar'_tvector if m0
+	logistic dead28 ib1.`pvar'2_k##ib1.`pvar'_tvector if m0 & touse
 	/* Average marginal effects at the means */
-	margins `pvar'2_k#`pvar'_tvector if m0, atmeans grand post
+	margins `pvar'2_k#`pvar'_tvector if m0 & touse, atmeans grand post
 	est store margins_m0_grid
 	marginsplot, x(`pvar'_tvector) legend(pos(3))
 
@@ -260,7 +280,8 @@ foreach pvar of local physiology_vars {
 
 	/* Complete cases */
 
-	/* Mid-range = CMPD `var_label' 1--5 */
+	/* 	Mid-range / risk
+		redefine touse here should also bring back in *all* medium risk patients */
 	cap drop touse
 	gen touse = `pvar'2_k == 2
 	spikeplot `pvar'_traj if touse & m0
@@ -392,9 +413,9 @@ foreach pvar of local physiology_vars {
 		xtitle("Change from pre-admission ICNARC score" ///
 				"(1{superscript:st} 24 hour value - ward assessment value)", ///
 				size(small)) ///
-		text(0  `ooffset' "Worsening" "severity", placement(c) size(small) color("`rred'")) ///
+		text(0 -`ooffset' "Worsening" "severity", placement(c) size(small) color("`rred'")) ///
 		text(0  0 "Neutral", placement(c) size(small)) ///
-		text(0 -`ooffset' "Improving" "severity", placement(c) size(small) color("`ggreen'")) ///
+		text(0 `ooffset' "Improving" "severity", placement(c) size(small) color("`ggreen'")) ///
 		legend(off) ///
 		name(marginsplot_`pvar', replace)
 
@@ -409,8 +430,8 @@ foreach pvar of local physiology_vars {
 		ylabel(,labsize(small)) ///
 		ytitle("Relative hazard") ///
 		xlabel($lab_numlist, labsize(vsmall) ) ///
-		xlabel(-`ooffset' "Worsening", add custom labcolor("`rred'") labsize(small) noticks labgap(medium)) ///
-		xlabel(`ooffset' "Improving", add custom labcolor("`ggreen'") labsize(small) noticks labgap(medium)) ///
+		xlabel(`ooffset' "Worsening", add custom labcolor("`rred'") labsize(small) noticks labgap(medium)) ///
+		xlabel(-`ooffset' "Improving", add custom labcolor("`ggreen'") labsize(small) noticks labgap(medium)) ///
 		xsize(6) ysize(6) ///
 		title("") ///
 		plotregion(margin(large)) ///
@@ -521,8 +542,8 @@ foreach pvar of local physiology_vars {
 		ylabel(,labsize(small)) ///
 		ytitle("Relative hazard") ///
 		xlabel($lab_numlist, labsize(vsmall) ) ///
-		xlabel(-`ooffset' "Worsening", add custom labcolor("`rred'") labsize(small) noticks labgap(medium)) ///
-		xlabel(`ooffset' "Improving", add custom labcolor("`ggreen'") labsize(small) noticks labgap(medium)) ///
+		xlabel(`ooffset' "Worsening", add custom labcolor("`rred'") labsize(small) noticks labgap(medium)) ///
+		xlabel(-`ooffset' "Improving", add custom labcolor("`ggreen'") labsize(small) noticks labgap(medium)) ///
 		xsize(6) ysize(6) ///
 		title("") ///
 		plotregion(margin(large)) ///
@@ -546,4 +567,5 @@ foreach pvar of local physiology_vars {
 }
 
 use ../outputs/tables/$table_name.dta, clear
+
 cap log close
