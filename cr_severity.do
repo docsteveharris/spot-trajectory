@@ -298,7 +298,7 @@ label var ims_abg2 "ICNARC score (+ABG) - ICU"
 *  ================
 *  = Trajectories =
 *  ================
-local traj_x 12
+local traj_x 24
 
 cap drop ims_c_traj
 gen ims_c_traj = (ims_c2 - ims_c1) / (round(time2icu, `traj_x') + 1)
@@ -343,9 +343,9 @@ label var plat_traj "Platelets slope"
 * su lac* cr* pf* ims* na* *urin* , sep(4)
 
 
-*  ==============================
-*  = ICNARC complete cases grid =
-*  ==============================
+*  =============================================
+*  = ICNARC COMPLETE CASES - BACKWARDS LOOKING =
+*  =============================================
 
 cap drop ims_c2_k
 egen ims_c2_k = cut(ims_c2), at(0, 15, 25 100) icodes
@@ -417,9 +417,86 @@ replace ims_tvector = 3 if inlist(ims_tclass,6,9)
 label define ims_tvector 3 "Deteriorating", add
 label values ims_tvector ims_tvector
 
-tab ims_c2_k ims_tvector 
+tab ims_c2_k ims_tvector
 
 table ims_c2_k ims_tvector , contents(p25 ims_c_traj p75 ims_c_traj)
+
+*  =============================================
+*  = ICNARC COMPLETE CASES - FORWARDS LOOKING =
+*  =============================================
+
+cap drop ims_c1_k
+egen ims_c1_k = cut(ims_c1), at(0, 15, 25 100) icodes
+replace ims_c1_k = ims_c1_k + 1
+label var ims_c1_k "ICNARC APS - Ward"
+cap label drop ims_c1_k
+label define ims_c1_k 1 "Low risk" 2 "Medium risk" 3 "High risk"
+label values ims_c1_k ims_c1_k
+tabstat ims_c_traj, by(ims_c1_k) s(n mean sd q) format(%9.3g)
+
+
+su ims_c_traj
+local traj_sd = round(r(sd))
+cap drop ims_tclass_fwd
+gen ims_tclass_fwd = 0
+label var ims_tclass_fwd "ICNARC trajectory class (forwards)"
+cap label drop ims_tclass_fwd
+label define ims_tclass_fwd 0 "Unclassified"
+
+/* DROP THIS - cannot be low risk and go on and improve */
+* replace ims_tclass_fwd = 1 if ims_c2_k == 1 & ims_c_traj < -1 * `traj_sd'
+* label define ims_tclass_fwd 1 "Low risk - improving", add
+
+su ims_c_traj, d
+replace ims_tclass_fwd = 2 if ims_c1_k == 1 & ims_c_traj < 0
+label define ims_tclass_fwd 2 "Low risk - neutral", add
+
+* CHANGED: 2013-04-16 - Low risk deteriorating now possible
+replace ims_tclass_fwd = 3 if ims_c1_k == 1 & ims_c_traj >= 0
+label define ims_tclass_fwd 3 "Low risk - deteriorating", add
+tab ims_tclass_fwd
+
+* MEDIUM
+replace ims_tclass_fwd = 4 if ims_c1_k == 2 & ims_c_traj < -1 * `traj_sd'
+label define ims_tclass_fwd 4 "Medium risk - improving", add
+
+replace ims_tclass_fwd = 5 if ims_c1_k == 2 & ims_c_traj >= -1 * `traj_sd' & ims_c_traj < 0
+label define ims_tclass_fwd 5 "Medium risk - neutral", add
+
+replace ims_tclass_fwd = 6 if ims_c1_k == 2 & ims_c_traj >= 0
+label define ims_tclass_fwd 6 "Medium risk - deteriorating", add
+
+/* SEVERE - now possible to have severe improving */
+replace ims_tclass_fwd = 7 if ims_c1_k == 3 & ims_c_traj < -1 * `traj_sd'
+label define ims_tclass_fwd 7 "High risk - improving", add
+
+replace ims_tclass_fwd = 8 if ims_c1_k == 3 & ims_c_traj >= -1 * `traj_sd' 
+label define ims_tclass_fwd 8 "High risk - neutral", add
+
+/* No longer makes sens to have deteriorating high risk */
+* replace ims_tclass_fwd = 9 if ims_c1_k == 3 & ims_c_traj >= 0
+* label define ims_tclass_fwd 9 "High risk - deteriorating", add
+
+label values ims_tclass_fwd ims_tclass_fwd
+tab ims_tclass_fwd
+
+tabstat ims_c_traj, by(ims_tclass_fwd) s(n mean sd q) format(%9.3g)
+
+cap drop ims_tvector_fwd
+cap label drop ims_tvector_fwd
+gen ims_tvector_fwd = .
+label var ims_tvector_fwd "Pre-admission ICNARC trajectory"
+replace ims_tvector_fwd = 1 if inlist(ims_tclass_fwd,1,4,7)
+label define ims_tvector_fwd 1 "Improving"
+replace ims_tvector_fwd = 2 if inlist(ims_tclass_fwd,2,5,8)
+label define ims_tvector_fwd 2 "Neutral", add
+replace ims_tvector_fwd = 3 if inlist(ims_tclass_fwd,3,6,9)
+label define ims_tvector_fwd 3 "Deteriorating", add
+label values ims_tvector_fwd ims_tvector_fwd
+
+tab ims_c1_k ims_tvector_fwd
+
+table ims_c1_k ims_tvector_fwd , contents(p25 ims_c_traj p75 ims_c_traj)
 
 *  =========================================
 *  = ICNARC partial cases - with ABG grid =
@@ -484,7 +561,7 @@ replace ims_abg_tvector = 3 if inlist(ims_abg_tclass,6,9)
 label define ims_abg_tvector 3 "Deteriorating", add
 label values ims_abg_tvector ims_abg_tvector
 
-tab ims_abg2_k ims_abg_tvector 
+tab ims_abg2_k ims_abg_tvector
 
 table ims_abg2_k ims_abg_tvector , contents(p25 ims_abg_traj p75 ims_abg_traj)
 
@@ -542,7 +619,7 @@ label var lac_tclass "Lactate trajectory class"
 cap label drop lac_tclass
 label define lac_tclass 0 "Unclassified"
 
-replace lac_tclass = 1 if lac2_k == 1 & lac_traj < -1 * $boundary 
+replace lac_tclass = 1 if lac2_k == 1 & lac_traj < -1 * $boundary
 label define lac_tclass 1 "Low risk - improving", add
 
 replace lac_tclass = 2 if lac2_k == 1 & lac_traj >= -1 * $boundary & lac_traj != .
@@ -585,6 +662,6 @@ replace lac_tvector = 3 if inlist(lac_tclass,6,9)
 label define lac_tvector 3 "Deteriorating", add
 label values lac_tvector lac_tvector
 
-tab lac2_k lac_tvector 
+tab lac2_k lac_tvector
 
     table lac2_k lac_tvector , contents(p25 lac_traj p75 lac_traj)
