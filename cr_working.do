@@ -180,6 +180,10 @@ replace exclude2 = 1 if include == 1 & exclude1 == 0 & ///
 	(site_quality_by_month < 80 | site_quality_by_month == .)
 tab exclude2 if include == 1 & exclude1 == 0
 
+* Count how many studymonths have an exclude2 flag
+duplicates report icode studymonth if exclude2 == 1
+ret li
+
 cap drop included_sites
 egen included_sites = tag(icode) if include == 1 & exclude1 == 0 & exclude2 == 0
 count if included_sites == 1

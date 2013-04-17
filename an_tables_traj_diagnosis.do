@@ -38,8 +38,8 @@ listtab_vars `vars', ///
 global table_name traj_diagnosis_50
 local justify llrl
 local tablefontsize "\tiny"
-* local arraystretch 1.0
-* local taburowcolors 2{white .. gray90}
+local arraystretch 1.0
+local taburowcolors 2{white .. gray90}
 /*
 NOTE: 2013-01-28 - needed in the pre-amble for colors
 \usepackage[usenames,dvipsnames,svgnames,table]{xcolor}

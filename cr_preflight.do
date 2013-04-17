@@ -6,12 +6,9 @@
 * be needed to work out occupancy and ccot shift patterns
 
 
-local debug = 1
-// override local debug settings
-if $debug == 0 local debug = 0
-if `debug' {
+local clean_run = 1
+if `clean_run' == 1 & $clean_run != 0 {
 	use ../data/working.dta, clear
-
 }
 else {
 	di as error "WARNING: debug off - using data in memory"
