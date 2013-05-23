@@ -1,59 +1,39 @@
-*  =================================
-*  = Master analysis plan and file =
-*  =================================
+*  ====================
+*  = Preparatory code =
+*  ====================
 
-* Steve Harris
-
-/* 
-Initial set-up of database
-Shell
-
-../ccode/import_sql.py spot_traj phd_sites -source spot
-../ccode/index_table.py spot_traj phd_sites
-../ccode/make_table.py spot_traj phd_sites
-
-../ccode/import_sql.py spot_traj unitsFinal  -source spot 
-../ccode/index_table.py spot_traj unitsfinal
-../ccode/make_table.py spot_traj unitsfinal
-
-../ccode/import_sql.py spot_traj headsFinal  -source spot 
-../ccode/index_table.py spot_traj headsfinal
-../ccode/make_table.py spot_traj headsfinal
-
-../ccode/import_sql.py spot_traj lite_summ_monthly  -source spot 
-../ccode/index_table.py spot_traj lite_summ_monthly
-../ccode/make_table.py spot_traj lite_summ_monthly
-
-Now use tailsMini for spot 
-
-../ccode/import_sql.py spot_traj tailsMini  -source spot 
-../ccode/index_table.py spot_traj tailsmini
-
-- but this just provides context
-
-Duplicate and copy the following tables (keys_dvr without content)
-SQL
-
-RENAME TABLE spot_early.keys_dvr_copy TO spot_traj.keys_dvr
-RENAME TABLE spot.tailsMini_copy TO spot_traj.tailsMini
-RENAME TABLE spot.tailsFinal_copy TO spot_traj.tailsFinal;
-
-
-
- */
-
+// Initial data sets
 include cr_working.do
+include cr_working_sensitivity.do
 
-*  ===================================
-*  = Summarise study characteristics =
-*  ===================================
+// Post flight data
+// NOTE: 2013-05-21 - BEWARE you have defined traj per 24 hrs in cr_severity.do
+use ../data/working.dta, clear
+qui include cr_preflight.do
+count
+save ../data/working_postflight.dta, replace
 
-include an_table_study.do
-
-include an_table_baseline.do
-
+// Survival data
+pwd
+use ../data/working_postflight.dta, clear
+count
 include cr_survival.do
+sts list, at(1 30 90 365)
+save ../data/working_survival.do, replace
 
-include an_traj.do
+
+*  =================
+*  = Analysis code =
+*  =================
+
+// Baseline tables
+do an_tables_traj_pt_chars.do
+do an_tables_traj_pt_physiology.do
+do an_tables_traj_pt_physiology_ward.do
 
 
+*  ========================
+*  = Inspect trajectories =
+*  ========================
+
+do an_fig_inspect_all.do

@@ -1,3 +1,4 @@
+use spot_traj;
 --  ====================================================
 --  = SQL set up views and tables that will be needed =
 --  ====================================================
@@ -49,3 +50,58 @@ CREATE VIEW spot_traj.sitesFinal_raw AS
 DROP VIEW IF EXISTS spot_traj.unitsFinal_raw;
 CREATE VIEW spot_traj.unitsFinal_raw AS
 	SELECT * FROM spot.unitsFinal;
+
+-- Make a table containing data from MRIS tracing to be used 
+-- to make working_traj
+DROP TABLE IF EXISTS spot_traj.light_mris_final_raw;
+CREATE TABLE spot_traj.light_mris_final_raw 
+	SELECT * FROM spot.light_mris_final;
+ALTER TABLE light_mris_final_raw ADD INDEX (idpatient);
+
+-- CHANGED: 2013-05-18 - Don't bother remaking headsFinal - just pull the version from spot_early
+DROP TABLE IF EXISTS spot_traj.headsFinal;
+CREATE TABLE spot_traj.headsFinal 
+  SELECT *
+	FROM spot_early.headsFinal;
+ALTER TABLE headsFinal ADD INDEX (idvisit);
+ALTER TABLE headsFinal ADD INDEX (idpatient);
+-- SELECT idpatient, date_trace, dead, icnno, adno FROM headsFinal LIMIT 5;
+
+DROP  TABLE IF EXISTS tails_mris;
+CREATE  TABLE tails_mris
+	SELECT
+	lower(icnno) as icnno,
+	adno,
+	idpatient,
+	"" AS idvisit,
+	dead,
+	date_event
+	FROM light_mris_final_raw 
+	WHERE icnno != "" AND adno != "";
+-- SELECT * FROM tails_mris LIMIT 5;
+
+INSERT INTO tails_mris (icnno, adno, idpatient, idvisit, dead, date_event)
+	SELECT 
+	h.icnno,
+	h.adno,
+	m.idpatient,
+	h.idvisit,
+	m.dead,
+	m.date_event
+	FROM light_mris_final_raw as m
+	LEFT JOIN headsFinal as h ON h.idpatient = m.idpatient
+	WHERE h.icnno IS NOT NULL AND h.adno IS NOT NULL AND m.icnno = "" and m.adno = "";
+
+ALTER TABLE tails_mris ADD INDEX (icnno, adno);
+
+ALTER TABLE tails_mris ADD INDEX (icnno);
+ALTER TABLE tails_mris ADD INDEX (adno);
+ALTER TABLE tails_final_ix ADD INDEX (icnno);
+ALTER TABLE tails_final_ix ADD INDEX (adno);
+
+SELECT count(*) FROM light_mris_final_raw;
+SELECT count(*) FROM tails_mris;
+-- SELECT * FROM tails_mris;  
+
+
+

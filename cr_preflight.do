@@ -5,14 +5,14 @@
 * Calling it pre-flight for now to distinguish it from the slower code that will
 * be needed to work out occupancy and ccot shift patterns
 
-
-local clean_run = 1
-if `clean_run' == 1 & $clean_run != 0 {
-	use ../data/working.dta, clear
-}
-else {
-	di as error "WARNING: debug off - using data in memory"
-}
+// CHANGED: 2013-05-20 - do not use this, you must call the right data initially
+* local clean_run = 0
+* if `clean_run' == 1 & $clean_run != 0 {
+* 	use ../data/working.dta, clear
+* }
+* else {
+* 	di as error "WARNING: debug off - using data in memory"
+* }
 
 cap label drop truefalse
 label define truefalse 0 "False" 1 "True"
@@ -655,50 +655,50 @@ d dx_*
 // Prepare variables so appropriately labelled for severity scores
 cap drop hr1
 ren hrate hr1
-label var hr1 "Heart rate - SPOT"
+label var hr1 "Heart rate - ward"
 cap drop hr2
 gen hr2 = (hhr + lhr) / 2 if !missing(hhr,lhr)
 replace hr2 = max(hhr,lhr) if (hhr == . | lhr == .) & hr2 == .
-label var hr2 "Heart rate - CMPD"
+label var hr2 "Heart rate - ICU"
 
 cap drop bps1
 rename bpsys bps1
-label var bps1 "SBP - SPOT"
+label var bps1 "Systolic BP - ward"
 cap drop bps2
 gen bps2 = (lsys + hsys) / 2 if !missing(lsys,hsys)
 replace bps2 = min(lsys,hsys) if (lsys == . | hsys == .) & bps2 == .
-label var bps2 "SBP - CMPD"
+label var bps2 "Systolic BP - ICU"
 
 cap drop temp1 temp2
 rename temperature temp1
-label var temp1 "Temp - SPOT"
+label var temp1 "Temperature - ward"
 gen temp2 = hctemp
 replace temp2 = hnctemp if temp2 == .
-label var temp2 "Temp - CMPD"
+label var temp2 "Temperature - ICU"
 su temp1 temp2
 
 cap drop rr1
 rename rrate rr1
-label var rr1 "Resp rate - SPOT"
+label var rr1 "Respiratory rate - ward"
 cap drop rr2
 gen rr2 = (lnvrr + hnvrr) / 2 if lnvrr != 0 & !missing(hnvrr, lnvrr)
 replace rr2 = max(hnvrr, lnvrr) if (hnvrr == . | lnvrr ==. ) & (hnvrr != 0 & lnvrr != 0) & rr2 == .
-label var rr2 "Resp rate - CMPD"
+label var rr2 "Respiratory rate - ICU"
 su rr1 rr2
 
 cap drop pf1 pf2
 replace pao2 = pao2 / 7.6 if abgunit == 2
 gen pf1 = pao2 / abgfio2 * 100
 gen pf2 = ilpo / filpo
-label var pf1 "P:F ratio - SPOT"
-label var pf2 "P:F ratio - CMPD"
+label var pf1 "P:F ratio - ward"
+label var pf2 "P:F ratio - ICU"
 su pf1 pf2
 
 cap drop ph1 ph2
 ren ph ph1
-label var ph1 "pH - SPOT"
+label var ph1 "pH - ward"
 ren lph_v3 ph2
-label var ph2 "pH - CMPD"
+label var ph2 "pH - ICU"
 /* Temp fix to avoid H+ data */
 replace ph2 = .a if ph2 > 8 | ph2 < 6.5
 su ph1 ph2
@@ -706,8 +706,8 @@ su ph1 ph2
 cap drop urea1 urea2
 ren urea urea1
 ren hu urea2
-label var urea1 "Urea - SPOT"
-label var urea2 "Urea - CMPD"
+label var urea1 "Urea - ward"
+label var urea2 "Urea - ICU"
 su urea1 urea2
 
 cap drop cr1
@@ -716,17 +716,17 @@ cap drop cr2
 gen cr2 = (hcreat + lcreat) / 2 if !missing(hcreat, lcreat)
 replace cr2 = max(hcreat, lcreat) if cr2 == . 
 replace cr2 = lcreat if missing(hcreat)
-label var cr1 "Creatinine - SPOT"
-label var cr2 "Creatinine - CMPD"
+label var cr1 "Creatinine - ward"
+label var cr2 "Creatinine - ICU"
 su cr1 cr2
 
 gen na2 = lna
 replace na2 = hna if na2 == .
-label var na2 "Sodium - CMPD"
+label var na2 "Sodium - ICU"
 /* Some v low sodiums in CMPD ... not possible */
 replace na2 = .a if na2 < 80
 ren sodium na1
-label var na1 "Sodium - SPOT"
+label var na1 "Sodium - ward"
 replace na1 = .a if na1 < 80
 
 cap drop urin1 urin2
@@ -745,24 +745,24 @@ replace urin2 = urin2 / 24
 
 replace urin1 = .a if urin1 > 250
 replace urin2 = .a if urin2 > 250
-label var urin1 "Urine ml/hr - SPOT"
-label var urin2 "Urine ml/hr - CMPD"
+label var urin1 "Urine ml/hr - ward"
+label var urin2 "Urine ml/hr - ICU"
 su urin1 urin2
 
 cap drop wcc1
 ren wcc wcc1
-label var wcc1 "WCC - SPOT"
+label var wcc1 "WCC - ward"
 cap drop wcc2
 gen wcc2 = (hwbc + lwbc) / 2 if !missing(hwbc, lwbc)
 replace wcc2 = max(hwbc, lwbc) if wcc2 == .
-label var wcc2 "WCC - CMPD"
+label var wcc2 "WCC - ICU"
 su wcc1 wcc2
 
 cap drop gcs1 gcs2
 ren gcst gcs1
-label var gcs1 "GCS - SPOT"
+label var gcs1 "GCS - ward"
 ren ltot gcs2
-label var gcs2 "GCS - CMPD"
+label var gcs2 "GCS - ICU"
 replace gcs2 = .a if gcs2 < 3
 su gcs1 gcs2
 
@@ -770,15 +770,15 @@ su gcs1 gcs2
 cap drop lac1 lac2
 ren lactate lac1
 rename hbl lac2
-label var lac1 "Lactate - SPOT"
-label var lac2 "Lactate - CMPD"
+label var lac1 "Lactate - ward"
+label var lac2 "Lactate - ICU"
 su lac1 lac2
 
 /* Platelets */
 ren lpc plat2
 ren platelets plat1
-label var plat1 "Platelets - SPOT"
-label var plat2 "Platelets - CMPD"
+label var plat1 "Platelets - ward"
+label var plat2 "Platelets - ICU"
 
 // Prepare your own severity scores etc
 include cr_severity.do
@@ -809,4 +809,5 @@ gen ims2_c = ims2 - r(mean)
 label var ims2_c "ICNARC physiology score (centred)"
 
 cap drop __*
-save ../data/working_postflight.dta, replace
+// CHANGED: 2013-05-20 - this is responsibility of calling code
+* save ../data/working_postflight.dta, replace

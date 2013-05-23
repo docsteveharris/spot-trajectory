@@ -44,13 +44,6 @@ You will need the following columns
 - max
 */
 
-local clean_run = 1
-if `clean_run' == 1 {
-    clear
-    use ../data/working.dta
-    include cr_preflight.do
-}
-
 use ../data/working_postflight.dta, clear
 
 *  ======================================
@@ -69,7 +62,7 @@ local super_vars patient sepsis outcome
 
 local patient age sex white delayed_referral icu_delay
 local sepsis sepsis
-local outcome yulosd dead_icu dead28 dead90
+local outcome yulosd dead_icu ahsurv dead28 
 
 * This is the layout of your table by sections
 local table_vars ///
@@ -89,7 +82,7 @@ local bin_vars
 local cat_vars v_ccmds vitals sepsis rxcvs rx_resp avpu sepsis_site ///
     rx_visit ccmds_delta v_decision ///
     periarrest hsinus rxrrt ///
-    sex rxlimits delayed_referral white icu_delay dead_icu dead28 dead90
+    sex rxlimits delayed_referral white icu_delay dead_icu dead28 dead90 ahsurv
 
 *  ==============================
 *  = Set up sparkline variables =
@@ -119,8 +112,8 @@ global table_order ///
     icu_delay gap_here ///
     yulosd gap_here ///
     dead_icu ///
-    dead28 ///
-    dead90
+    ahsurv ///
+    dead28 
 
 * number the gaps
 local i = 1
@@ -348,7 +341,7 @@ global grp_sizes `grp_sizes'
 postclose `pname'
 use `pfile', clear
 qui compress
-br
+
 
 *  ===================================================================
 *  = Now you need to pull in the table row labels, units and formats =
@@ -448,7 +441,6 @@ replace tablerowlabel = tablerowlabel + " (" + unitlabel + ")" if !missing(unitl
 order tablerowlabel vcentral_fmt vbracket
 * NOTE: 2013-01-25 - This adds gaps in the table: specific to this table
 
-br tablerowlabel vcentral_fmt vbracket
 
 
 chardef tablerowlabel vcentral_fmt vbracket, ///

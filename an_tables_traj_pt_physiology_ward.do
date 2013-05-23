@@ -2,6 +2,8 @@
 *  = traj patient data =
 *  =========================
 
+// Ward physiology measurements
+
 GenericSetupSteveHarris spot_traj an_tables_traj_pt_physiology, logon
 global table_name traj_pt_physiology_ward
 
@@ -14,13 +16,6 @@ You will need the following columns
 - min
 - max
 */
-
-local clean_run 1
-if `clean_run' == 1 {
-    clear
-    use ../data/working.dta
-    qui include cr_preflight.do
-}
 
 use ../data/working_postflight.dta, clear
 
@@ -315,7 +310,6 @@ global grp_sizes `grp_sizes'
 postclose `pname'
 use `pfile', clear
 qui compress
-br
 
 save ../outputs/tables/$table_name.dta, replace
 *  ===================================================================
@@ -414,7 +408,6 @@ replace tablerowlabel = tablerowlabel + " (" + unitlabel + ")" if !missing(unitl
 order tablerowlabel vcentral_fmt vbracket
 * NOTE: 2013-01-25 - This adds gaps in the table: specific to this table
 
-br tablerowlabel vcentral_fmt vbracket
 
 
 chardef tablerowlabel vcentral_fmt vbracket, ///

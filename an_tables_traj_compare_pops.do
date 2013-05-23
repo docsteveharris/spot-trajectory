@@ -12,13 +12,6 @@ byvar set-up does not work with overlapping populations
 so the multiple table creation is modified
 */
 
-local clean_run 1
-if `clean_run' == 1 {
-    clear
-    use ../data/working.dta
-    qui include cr_preflight.do
-}
-
 use ../data/working_postflight.dta, clear
 
 *  ======================================
@@ -131,6 +124,7 @@ tempfile working
 save `working', replace
 
 levelsof `byvar', clean local(bylevels)
+* NOTE: 2013-05-20 - DOES NOT USE BYVAR but the if clauses below
 local pops iif_lac iif_ims_c iif_ims_ms
 local lvl = 0
 foreach pop of local pops {
@@ -325,7 +319,7 @@ global grp_sizes `grp_sizes'
 postclose `pname'
 use `pfile', clear
 qui compress
-br
+
 
 save ../outputs/tables/$table_name.dta, replace
 *  ===================================================================
@@ -424,7 +418,6 @@ replace tablerowlabel = tablerowlabel + " (" + unitlabel + ")" if !missing(unitl
 order tablerowlabel vcentral_fmt vbracket
 * NOTE: 2013-01-25 - This adds gaps in the table: specific to this table
 
-br tablerowlabel vcentral_fmt vbracket
 
 
 chardef tablerowlabel vcentral_fmt vbracket, ///

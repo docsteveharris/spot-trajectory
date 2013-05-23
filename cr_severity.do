@@ -302,43 +302,87 @@ local traj_x 24
 
 cap drop ims_c_traj
 gen ims_c_traj = (ims_c2 - ims_c1) / (round(time2icu, `traj_x') + 1)
-label var ims_c_traj "IMscore - complete - slope"
+label var ims_c_traj "IMscore - complete - - Ward to ICU change"
 
 cap drop ims_ms_traj
 gen ims_ms_traj = (ims_ms2 - ims_ms1) / (round(time2icu, `traj_x') + 1)
-label var ims_ms_traj "ICNARC score (partial) - trajectory"
+label var ims_ms_traj "ICNARC score (partial) - Ward to ICU change"
 
 cap drop ims_abg_traj
 gen ims_abg_traj = (ims_abg2 - ims_abg1) / (round(time2icu, `traj_x') + 1)
-label var ims_abg_traj "ICNARC score (+ABG) - trajectory"
+label var ims_abg_traj "ICNARC score (+ABG) - Ward to ICU change"
 
 cap drop pf_traj
 gen pf_traj = (pf2 - pf1) / (round(time2icu, `traj_x') + 1)
-label var pf_traj "P:F slope"
+label var pf_traj "P:F - Ward to ICU change"
 
 cap drop traj_urin
 gen traj_urin = (urin2 - urin1) / (round(time2icu, `traj_x') + 1)
-label var traj_urin "Urine output slope"
+label var traj_urin "Urine output - Ward to ICU change"
 
 cap drop cr_traj
 gen cr_traj = (cr2 - cr1) / (round(time2icu, `traj_x') + 1)
-label var cr_traj "Creatinine slope"
+label var cr_traj "Creatinine - Ward to ICU change"
 
 cap drop lac_traj
 gen lac_traj = (lac2 - lac1) / (round(time2icu, `traj_x') + 1)
-label var lac_traj "Lactate slope"
+label var lac_traj "Lactate - Ward to ICU change"
 
 cap drop urea_traj
 gen urea_traj = (urea2 - urea1) / (round(time2icu, `traj_x') + 1)
-label var urea_traj "Urea slope"
+label var urea_traj "Urea - Ward to ICU change"
 
 cap drop na_traj
-gen na_traj = (na2 - na1) / (round(time2icu, 24) + 1)
-label var na_traj "Sodium slope"
+gen na_traj = (na2 - na1) / (round(time2icu, `traj_x') + 1)
+label var na_traj "Sodium - Ward to ICU change"
 
 cap drop plat_traj
-gen plat_traj = (plat2 - plat1) / (round(time2icu, 24) + 1)
-label var plat_traj "Platelets slope"
+gen plat_traj = (plat2 - plat1) / (round(time2icu, `traj_x') + 1)
+label var plat_traj "Platelets - Ward to ICU change"
+
+cap drop hr_traj
+gen hr_traj = (hr2 - hr1) / (round(time2icu, `traj_x') + 1)
+label var hr_traj "Heart rate - Ward to ICU change"
+
+cap drop rr_traj
+gen rr_traj = (rr2 - rr1) / (round(time2icu, `traj_x') + 1)
+label var rr_traj "Respiratory rate - Ward to ICU change"
+
+cap drop bps_traj
+gen bps_traj = (bps2 - bps1) / (round(time2icu, `traj_x') + 1)
+label var bps_traj "Systolic BP - Ward to ICU change"
+
+cap drop na_traj
+gen na_traj = (na2 - na1) / (round(time2icu, `traj_x') + 1)
+label var na_traj "Sodium - Ward to ICU change"
+
+cap drop wcc_traj
+gen wcc_traj = (wcc2 - wcc1) / (round(time2icu, `traj_x') + 1)
+label var wcc_traj "White cell count - Ward to ICU change"
+
+cap drop temp_traj
+gen temp_traj = (temp2 - temp1) / (round(time2icu, `traj_x') + 1)
+label var temp_traj "Temperature - Ward to ICU change"
+
+cap drop ph_traj
+gen ph_traj = (ph2 - ph1) / (round(time2icu, `traj_x') + 1)
+label var ph_traj "pH - Ward to ICU change"
+
+cap drop urin_traj
+gen urin_traj = (urin2 - urin1) / (round(time2icu, `traj_x') + 1)
+label var urin_traj "Urine volume - Ward to ICU change"
+
+cap drop gcs_traj
+gen gcs_traj = (gcs2 - gcs1) / (round(time2icu, `traj_x') + 1)
+label var gcs_traj "GCS - Ward to ICU change"
+
+// clone var so match naming pattern
+clonevar filpo2 = filpo
+replace filpo2 = 100 * filpo2
+cap drop filpo_traj
+gen filpo_traj = (filpo2 - fio2_std) / (round(time2icu, `traj_x') + 1)
+label var filpo_traj "Inpsired oxygen - Ward to ICU change"
+
 
 * su lac* cr* pf* ims* na* *urin* , sep(4)
 
