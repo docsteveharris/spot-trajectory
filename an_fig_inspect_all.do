@@ -16,16 +16,24 @@ TODO: 2013-05-21 -
 - then do using heat maps for mortality
 */
 
+// NOTE: 2013-06-19 - same code as for an_model_raw_bkwd so numbers the same
+local physiology working_postflight_mi_plus_surv
+use ../data/`physiology'.dta, clear
+merge m:1 id using ../data/working_postflight ///
+	, keepusing(date_trace daicu dead dead28 adno) nolabel replace update
+drop if inlist(_merge, 1,2)
+drop _merge
+keep if m0
 
-use ../data/working_postflight.dta, clear
+* use ../data/working_postflight.dta, clear
 set scheme shcol
 count
 su time2icu, d
-keep if time2icu < 24
+keep if time2icu <= 24
 cap drop __*
 
 local pvars hr bps rr temp urin pf lac wcc plat na cr urea ph ims_c ims_ms ims_c
-* local pvars cr
+* local pvars ims_c
 foreach pvar of local pvars {
 	count if !missing(`pvar'_traj)	
 	local var_n = r(N)

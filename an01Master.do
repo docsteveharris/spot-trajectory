@@ -37,3 +37,6 @@ do an_tables_traj_pt_physiology_ward.do
 *  ========================
 
 do an_fig_inspect_all.do
+
+// Model trajectories from adjusted for admission values
+do an_model_raw_bkwd.do

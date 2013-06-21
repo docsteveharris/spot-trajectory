@@ -13,9 +13,11 @@ Decisions to discuss
 - the MI model will often be non-linear
 	... but the best predictor will be the 'paired' variable
 	and this *should* be linear (i.e. Na is non-linear but na1 is a linear predictor of na2)
+	- model might be less non-linear than you think since you are predicting physiology from other physiology *not* predicting mortality
 - might be best to run MI on the weights (and thereby handle the non-linearity issues)
 - finally the imputation models assume everything is independent
 	but you have repeated measures
+
 
 Solutions
 1. MI model using weights and including the final aggregate score
@@ -29,13 +31,14 @@ Define the variables that should be kept in the MI data set
 */
 
 clear all
-use ../data/working.dta
+* use ../data/working.dta
 qui include mtPrograms.do
-qui include cr_preflight.do
+* qui include cr_preflight.do
 use ../data/working_postflight.dta, clear
 set scheme shbw
 set seed 3001
-global n_imputations 10
+global n_imputations 20
+// DEBUGGING: 2013-05-31 - comment this out when ready
 * sample 500, count
 
 /* Complete observed vars (NB dx_cat missing in 14) */
@@ -66,6 +69,7 @@ local pre_vars	///
 	hr bps temp rr urea cr na wcc ///
 	urin gcs pf ph ///
 	lac plat
+
 foreach var of local pre_vars {
 	gen `var'_d = `var'2 - `var'1
 	local diff_vars `diff_vars' `var'_d
@@ -110,13 +114,25 @@ mi register passive $other_vars `surv_passive'
 mi register imputed $mi_vars
 mi register regular $complete_vars $out_vars
 
+// Calculate proportion of missing data
+local s = 0
+local n = 0
+foreach var of global mi_vars {
+	count if `var' == .
+	local s = `s' + r(N)
+	local ++n
+}
+local r = `s' / (_N *`n')
+di `r'
+
+
 /* Imputation model assumes linear relations? - check */
 
 * collin $mi_vars
 
 /* Multiple imputation step */
 mi impute chained ///
-	(pmm) ///
+	(pmm, knn(10)) ///
 	hr_d hr2 ///
 	bps_d bps2 ///
 	temp_d temp2 ///
@@ -134,7 +150,7 @@ mi impute chained ///
 	gcs_d gcs2 ///
 	= age sex dead28 i.dx_cat time2icu ///
 	, ///
-	add($n_imputations) replace dots augment
+	add($n_imputations) replace dots augment 
 
 // CHANGED: 2013-04-06 - now recover the original pre-vars from the differences
 foreach var of global pre_vars {

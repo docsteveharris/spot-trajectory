@@ -316,9 +316,9 @@ cap drop pf_traj
 gen pf_traj = (pf2 - pf1) / (round(time2icu, `traj_x') + 1)
 label var pf_traj "P:F - Ward to ICU change"
 
-cap drop traj_urin
-gen traj_urin = (urin2 - urin1) / (round(time2icu, `traj_x') + 1)
-label var traj_urin "Urine output - Ward to ICU change"
+cap drop urin_traj
+gen urin_traj = (urin2 - urin1) / (round(time2icu, `traj_x') + 1)
+label var urin_traj "Urine output - Ward to ICU change"
 
 cap drop cr_traj
 gen cr_traj = (cr2 - cr1) / (round(time2icu, `traj_x') + 1)
@@ -377,11 +377,15 @@ gen gcs_traj = (gcs2 - gcs1) / (round(time2icu, `traj_x') + 1)
 label var gcs_traj "GCS - Ward to ICU change"
 
 // clone var so match naming pattern
-clonevar filpo2 = filpo
-replace filpo2 = 100 * filpo2
-cap drop filpo_traj
-gen filpo_traj = (filpo2 - fio2_std) / (round(time2icu, `traj_x') + 1)
-label var filpo_traj "Inpsired oxygen - Ward to ICU change"
+// not in MI data so check exists 1st
+cap confirm var filpo
+if !_rc {
+    clonevar filpo2 = filpo
+    replace filpo2 = 100 * filpo2
+    cap drop filpo_traj
+    gen filpo_traj = (filpo2 - fio2_std) / (round(time2icu, `traj_x') + 1)
+    label var filpo_traj "Inpsired oxygen - Ward to ICU change"
+}
 
 
 * su lac* cr* pf* ims* na* *urin* , sep(4)
