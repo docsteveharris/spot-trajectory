@@ -1,23 +1,13 @@
-*  ==========================================================================
-*  = Effect of trajectory - but examined only within the mid-range severity =
-*  ==========================================================================
+*  ============================================
+*  = Sensitivity analysis - 4 hours data only =
+*  ============================================
 /*
 created:	130408
-modified:	130416
+modified:	130622
 
-
-Examine trajectory in a region where constraints should not matter
-Specifically avoided vars that have a non-linear relationship with mortality
-Focus on
-- CVS: Lactate (as marker of severity, metabolic and CVS stress)
-- AKI: Creatinine
-- Resp: PF
-- Platelets: Haem (in SOFA, and unmodifiable)
-
-Define a population in which none of these are missing
 */
 
-GenericSetupSteveHarris spot_traj an_model_raw_bkwd, logon
+GenericSetupSteveHarris spot_traj an_model_raw_bkwd_4h, logon
 if c(os) == "MacOSX" global gext pdf
 if c(os) == "MacOSX" global gext_other eps
 if c(os) != "MacOSX" global gext eps
@@ -72,8 +62,13 @@ global ycat_labels `" 0.1 "10" 0.3 "30" 0.5 "50" "'
 
 
 * local physiology_vars lac cr plat pf
-local physiology_vars hr bps rr lac temp wcc urin pf plat na cr urea ims_c ph gcs
-* local physiology_vars hr
+local physiology_vars ims_ms_4h
+*  ================================================================
+*  = Define a new variable that will be a 4h specific version =
+*  ================================================================
+clonevar ims_ms_4h1 = ims_ms1
+clonevar ims_ms_4h2 = ims_ms2
+clonevar ims_ms_4h_traj = ims_ms_traj 
 
 save ../data/scratch/scratch.dta, replace
 
@@ -88,7 +83,7 @@ foreach pvar of local physiology_vars {
 
 	// HEART RATE
 	// U-shaped: examine high heart rates only
-	if "`pvar'"	== "hr" {
+	if "`pvar'"	== "hr_4h" {
 		local var_label "Heart rate"
 		// Ordering of risk
 		local reverse_label 0
@@ -117,7 +112,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 < `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Heart rate - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -134,7 +129,7 @@ foreach pvar of local physiology_vars {
 
 	// RESPIRATORY RATE
 	// U-shaped: examine high resp rates only
-	if "`pvar'"	== "rr" {
+	if "`pvar'"	== "rr_4h" {
 		local var_label "Respiratory rate"
 		// Ordering of risk
 		local reverse_label 0
@@ -159,7 +154,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 < `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Respiratory rate - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -176,7 +171,7 @@ foreach pvar of local physiology_vars {
 
 	// SYSTOLIC BLOOD PRESSURE
 	// U-shaped: examining low blood pressures only
-	if "`pvar'"	== "bps" {
+	if "`pvar'"	== "bps_4h" {
 		local var_label "Systolic Blood Pressure"
 		// Ordering of risk
 		local reverse_label 1
@@ -224,7 +219,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 > `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Systolic Blood Pressure - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		// define touse specifically for this variable
@@ -237,7 +232,7 @@ foreach pvar of local physiology_vars {
 
 	// pH
 	// U-shaped: focus just on acidotic
-	if "`pvar'"	== "ph" {
+	if "`pvar'"	== "ph_4h" {
 		local var_label "pH"
 		// Ordering of risk
 		local reverse_label 1
@@ -260,7 +255,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 > `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "pH - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		// define touse specifically for this variable
@@ -276,14 +271,14 @@ foreach pvar of local physiology_vars {
 
 	// LACTATE
 	// Monotonic - high is bad
-	if "`pvar'"	== "lac" {
+	if "`pvar'"	== "lac_4h" {
 		local var_label "Lactate"
 		// Ordering of risk
 		local reverse_label 0
 		// find the minimum of the inflexion point with mortality
 		// and replace with missing where below so you have a linear variable
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Lactate - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		// define touse specifically for this variable
@@ -299,7 +294,7 @@ foreach pvar of local physiology_vars {
 
 	// TEMPERATURE
 	// U-shaped: Examine low temperatures only
-	if "`pvar'"	== "temp" {
+	if "`pvar'"	== "temp_4h" {
 		local var_label "Temperature"
 		// Ordering of risk
 		local reverse_label 1
@@ -320,7 +315,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 > `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Temperature - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -337,7 +332,7 @@ foreach pvar of local physiology_vars {
 
 	// WHITE CELL COUNT
 	// U-shaped: Examine high counts only
-	if "`pvar'"	== "wcc" {
+	if "`pvar'"	== "wcc_4h" {
 		local var_label "White cell count"
 		// Ordering of risk
 		local reverse_label 0
@@ -359,7 +354,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 < `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "White cell count - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -376,7 +371,7 @@ foreach pvar of local physiology_vars {
 
 	// URINE
 	// Monotonic (with spike at zero): low is bad (in fact running is flat!)
-	if "`pvar'"	== "urin" {
+	if "`pvar'"	== "urin_4h" {
 		local var_label "Urine volume"
 		// Ordering of risk
 		local reverse_label 1
@@ -385,7 +380,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Urine volume - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -402,7 +397,7 @@ foreach pvar of local physiology_vars {
 
 	// P:F ratio
 	// Should be monotonic
-	if "`pvar'"	== "pf" {
+	if "`pvar'"	== "pf_4h" {
 		local var_label "P:F ratio"
 		// Ordering of risk
 		local reverse_label 1
@@ -411,7 +406,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "P:F ratio - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -428,7 +423,7 @@ foreach pvar of local physiology_vars {
 
 	// PLATELETS
 	// Monotonic: Low is bad
-	if "`pvar'"	== "plat" {
+	if "`pvar'"	== "plat_4h" {
 		local var_label "Platelets"
 		// Ordering of risk
 		local reverse_label 1
@@ -436,7 +431,7 @@ foreach pvar of local physiology_vars {
 		// and replace with missing where below so you have a linear variable
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Platelets - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		// define touse specifically for this variable
@@ -452,7 +447,7 @@ foreach pvar of local physiology_vars {
 	
 	// SODIUM
 	// U-shaped: Focus on low
-	if "`pvar'"	== "na" {
+	if "`pvar'"	== "na_4h" {
 		local var_label "Sodium"
 		// Ordering of risk
 		local reverse_label 1
@@ -475,7 +470,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 > `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Sodium - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -492,7 +487,7 @@ foreach pvar of local physiology_vars {
 
 	// CREATININE
 	// Monotonic (ish) - high is bad
-	if "`pvar'"	== "cr" {
+	if "`pvar'"	== "cr_4h" {
 		local var_label "Creatinine"
 		// Ordering of risk
 		local reverse_label 0
@@ -513,7 +508,7 @@ foreach pvar of local physiology_vars {
 		di as result "`=r(N)' cases to be dropped from SPOT data set"
 		replace `pvar'1 = . if `pvar'1 > `inflexion'
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Creatinine - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -530,7 +525,7 @@ foreach pvar of local physiology_vars {
 
 	// UREA
 	// Monotonic (ish) - high is bad
-	if "`pvar'"	== "urea" {
+	if "`pvar'"	== "urea_4h" {
 		local var_label "Urea"
 		// Ordering of risk
 		local reverse_label 0
@@ -539,7 +534,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Urea - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -556,7 +551,7 @@ foreach pvar of local physiology_vars {
 
 	// GCS
 	// Monotonic: Low is bad
-	if "`pvar'"	== "gcs" {
+	if "`pvar'"	== "gcs_4h" {
 		local var_label "Urine volume"
 		// Ordering of risk
 		local reverse_label 1
@@ -565,7 +560,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "Urine volume - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -582,7 +577,7 @@ foreach pvar of local physiology_vars {
 
 	// ICNARC APS
 	// Monotonic (ish) - high is bad
-	if "`pvar'"	== "ims_c" {
+	if "`pvar'"	== "ims_c_4h" {
 		local var_label "ICNARC APS (complete)"
 		// Ordering of risk
 		local reverse_label 0
@@ -591,7 +586,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "ICNARC APS - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -608,7 +603,7 @@ foreach pvar of local physiology_vars {
 	}
 	// ICNARC APS - Partial
 	// Monotonic (ish) - high is bad
-	if "`pvar'"	== "ims_ms" {
+	if "`pvar'"	== "ims_ms_4h" {
 		local var_label "ICNARC APS (Partial)"
 		// Ordering of risk
 		local reverse_label 0
@@ -617,7 +612,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 4
 		label var `pvar'_traj "ICNARC APS (Partial) - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		

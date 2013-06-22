@@ -1,23 +1,19 @@
-*  ==========================================================================
-*  = Effect of trajectory - but examined only within the mid-range severity =
-*  ==========================================================================
+*  =====================================
+*  = Trajectory - sensitivity analysis =
+*  =====================================
 /*
 created:	130408
-modified:	130416
+modified:	130621
 
+Code originally an_model_raw_bkwd.do
+Now adapted to work on sensitivity analyses
 
-Examine trajectory in a region where constraints should not matter
-Specifically avoided vars that have a non-linear relationship with mortality
-Focus on
-- CVS: Lactate (as marker of severity, metabolic and CVS stress)
-- AKI: Creatinine
-- Resp: PF
-- Platelets: Haem (in SOFA, and unmodifiable)
+- work with sepsis and divide into two broad categories
+- work just with global severity
 
-Define a population in which none of these are missing
 */
 
-GenericSetupSteveHarris spot_traj an_model_raw_bkwd, logon
+GenericSetupSteveHarris spot_traj an_model_raw_bkwd_sepsis, logon
 if c(os) == "MacOSX" global gext pdf
 if c(os) == "MacOSX" global gext_other eps
 if c(os) != "MacOSX" global gext eps
@@ -25,21 +21,6 @@ if c(os) != "MacOSX" global gext_other pdf
 
 global debug 0
 set scheme shred
-
-
-*  ============================
-*  = Bring in the MI data set =
-*  ============================
-local physiology working_postflight_mi_plus_surv
-use ../data/`physiology'.dta, clear
-merge m:1 id using ../data/working_postflight ///
-	, keepusing(date_trace daicu dead dead28) nolabel replace update
-drop if inlist(_merge, 1,2)
-drop _merge
-
-global table_name model_bkwd_monly
-tempfile estimates_file working
-global i = 0
 
 cap program drop myret
 program myret, rclass
@@ -55,10 +36,47 @@ program emargins, eclass properties(mi)
 	di "$margins_cmd"
 	$margins_cmd post
 end
+*  ============================
+*  = Bring in the MI data set =
+*  ============================
 
+local physiology working_postflight_mi_plus_surv
+use ../data/`physiology'.dta, clear
+merge m:1 id using ../data/working_postflight ///
+	, keepusing(date_trace daicu dead dead28 sepsis) nolabel replace update
+drop if inlist(_merge, 1,2)
+drop _merge
+
+*  =====================================================================
+*  = Set up a loop to produce the plots for each version of trajectory =
+*  =====================================================================
+cap drop sepsis3
+gen sepsis3 = .
+replace sepsis3 = 1 if inlist(sepsis,1,2)
+replace sepsis3 = 2 if inlist(sepsis,3)
+replace sepsis3 = 3 if inlist(sepsis,4)
+label var sepsis3 "3 way sepsis probability"
+cap label drop sepsis3
+label define sepsis3 1 "Unlikely / Very unlikely"
+label define sepsis3 2 "Likely", add
+label define sepsis3 3 "Very likely", add
+label values sepsis3 sepsis3
+
+
+forvalues sepsis3 = 1/3 {
+preserve
+keep if sepsis3 == `sepsis3'
+if `sepsis3' == 1 local sepsis_label "Unlikely / Very unlikely"
+if `sepsis3' == 2 local sepsis_label "Likely"
+if `sepsis3' == 3 local sepsis_label "Very likely"
+
+global table_name model_bkwd_monly
+tempfile estimates_file working
+global i = 0
 
 mi misstable patterns lac_traj cr_traj plat_traj pf_traj, freq
 cap drop touse
+
 * CHANGED: 2013-05-29 - uses ims_ms as a common denominator (broader than ims_c)
 * gen touse = !missing(ims_ms_traj)
 * CHANGED: 2013-06-14 - drop the concept of defining a common population since 
@@ -71,9 +89,14 @@ global ycat_labels `" 0 "0" 0.2 "20" 0.4 "40" 0.6 "60" 0.8 "80" "'
 global ycat_labels `" 0.1 "10" 0.3 "30" 0.5 "50" "'
 
 
-* local physiology_vars lac cr plat pf
-local physiology_vars hr bps rr lac temp wcc urin pf plat na cr urea ims_c ph gcs
-* local physiology_vars hr
+*  ================================================================
+*  = Define a new variable that will be a sepsis specific version =
+*  ================================================================
+clonevar ims_ms_`sepsis3's1 = ims_ms1
+clonevar ims_ms_`sepsis3's2 = ims_ms2
+clonevar ims_ms_`sepsis3's_traj = ims_ms_traj 
+
+local physiology_vars ims_ms_`sepsis3's
 
 save ../data/scratch/scratch.dta, replace
 
@@ -88,7 +111,7 @@ foreach pvar of local physiology_vars {
 
 	// HEART RATE
 	// U-shaped: examine high heart rates only
-	if "`pvar'"	== "hr" {
+	if "`pvar'"	== "hr_`sepsis3's" {
 		local var_label "Heart rate"
 		// Ordering of risk
 		local reverse_label 0
@@ -117,7 +140,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 < `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Heart rate - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -134,7 +157,7 @@ foreach pvar of local physiology_vars {
 
 	// RESPIRATORY RATE
 	// U-shaped: examine high resp rates only
-	if "`pvar'"	== "rr" {
+	if "`pvar'"	== "rr_`sepsis3's" {
 		local var_label "Respiratory rate"
 		// Ordering of risk
 		local reverse_label 0
@@ -159,7 +182,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 < `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Respiratory rate - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -176,7 +199,7 @@ foreach pvar of local physiology_vars {
 
 	// SYSTOLIC BLOOD PRESSURE
 	// U-shaped: examining low blood pressures only
-	if "`pvar'"	== "bps" {
+	if "`pvar'"	== "bps_`sepsis3's" {
 		local var_label "Systolic Blood Pressure"
 		// Ordering of risk
 		local reverse_label 1
@@ -224,7 +247,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 > `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Systolic Blood Pressure - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		// define touse specifically for this variable
@@ -237,7 +260,7 @@ foreach pvar of local physiology_vars {
 
 	// pH
 	// U-shaped: focus just on acidotic
-	if "`pvar'"	== "ph" {
+	if "`pvar'"	== "ph_`sepsis3's" {
 		local var_label "pH"
 		// Ordering of risk
 		local reverse_label 1
@@ -260,7 +283,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 > `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "pH - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		// define touse specifically for this variable
@@ -276,14 +299,14 @@ foreach pvar of local physiology_vars {
 
 	// LACTATE
 	// Monotonic - high is bad
-	if "`pvar'"	== "lac" {
+	if "`pvar'"	== "lac_`sepsis3's" {
 		local var_label "Lactate"
 		// Ordering of risk
 		local reverse_label 0
 		// find the minimum of the inflexion point with mortality
 		// and replace with missing where below so you have a linear variable
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Lactate - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		// define touse specifically for this variable
@@ -299,7 +322,7 @@ foreach pvar of local physiology_vars {
 
 	// TEMPERATURE
 	// U-shaped: Examine low temperatures only
-	if "`pvar'"	== "temp" {
+	if "`pvar'"	== "temp_`sepsis3's" {
 		local var_label "Temperature"
 		// Ordering of risk
 		local reverse_label 1
@@ -320,7 +343,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 > `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Temperature - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -337,7 +360,7 @@ foreach pvar of local physiology_vars {
 
 	// WHITE CELL COUNT
 	// U-shaped: Examine high counts only
-	if "`pvar'"	== "wcc" {
+	if "`pvar'"	== "wcc_`sepsis3's" {
 		local var_label "White cell count"
 		// Ordering of risk
 		local reverse_label 0
@@ -359,7 +382,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 < `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "White cell count - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -376,7 +399,7 @@ foreach pvar of local physiology_vars {
 
 	// URINE
 	// Monotonic (with spike at zero): low is bad (in fact running is flat!)
-	if "`pvar'"	== "urin" {
+	if "`pvar'"	== "urin_`sepsis3's" {
 		local var_label "Urine volume"
 		// Ordering of risk
 		local reverse_label 1
@@ -385,7 +408,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Urine volume - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -402,7 +425,7 @@ foreach pvar of local physiology_vars {
 
 	// P:F ratio
 	// Should be monotonic
-	if "`pvar'"	== "pf" {
+	if "`pvar'"	== "pf_`sepsis3's" {
 		local var_label "P:F ratio"
 		// Ordering of risk
 		local reverse_label 1
@@ -411,7 +434,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "P:F ratio - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -428,7 +451,7 @@ foreach pvar of local physiology_vars {
 
 	// PLATELETS
 	// Monotonic: Low is bad
-	if "`pvar'"	== "plat" {
+	if "`pvar'"	== "plat_`sepsis3's" {
 		local var_label "Platelets"
 		// Ordering of risk
 		local reverse_label 1
@@ -436,7 +459,7 @@ foreach pvar of local physiology_vars {
 		// and replace with missing where below so you have a linear variable
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Platelets - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		// define touse specifically for this variable
@@ -452,7 +475,7 @@ foreach pvar of local physiology_vars {
 	
 	// SODIUM
 	// U-shaped: Focus on low
-	if "`pvar'"	== "na" {
+	if "`pvar'"	== "na_`sepsis3's" {
 		local var_label "Sodium"
 		// Ordering of risk
 		local reverse_label 1
@@ -475,7 +498,7 @@ foreach pvar of local physiology_vars {
 		replace `pvar'1 = . if `pvar'1 > `inflexion'
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Sodium - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -492,7 +515,7 @@ foreach pvar of local physiology_vars {
 
 	// CREATININE
 	// Monotonic (ish) - high is bad
-	if "`pvar'"	== "cr" {
+	if "`pvar'"	== "cr_`sepsis3's" {
 		local var_label "Creatinine"
 		// Ordering of risk
 		local reverse_label 0
@@ -513,7 +536,7 @@ foreach pvar of local physiology_vars {
 		di as result "`=r(N)' cases to be dropped from SPOT data set"
 		replace `pvar'1 = . if `pvar'1 > `inflexion'
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Creatinine - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -530,7 +553,7 @@ foreach pvar of local physiology_vars {
 
 	// UREA
 	// Monotonic (ish) - high is bad
-	if "`pvar'"	== "urea" {
+	if "`pvar'"	== "urea_`sepsis3's" {
 		local var_label "Urea"
 		// Ordering of risk
 		local reverse_label 0
@@ -539,7 +562,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Urea - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -556,7 +579,7 @@ foreach pvar of local physiology_vars {
 
 	// GCS
 	// Monotonic: Low is bad
-	if "`pvar'"	== "gcs" {
+	if "`pvar'"	== "gcs_`sepsis3's" {
 		local var_label "Urine volume"
 		// Ordering of risk
 		local reverse_label 1
@@ -565,7 +588,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "Urine volume - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -582,7 +605,7 @@ foreach pvar of local physiology_vars {
 
 	// ICNARC APS
 	// Monotonic (ish) - high is bad
-	if "`pvar'"	== "ims_c" {
+	if "`pvar'"	== "ims_c_`sepsis3's" {
 		local var_label "ICNARC APS (complete)"
 		// Ordering of risk
 		local reverse_label 0
@@ -591,7 +614,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "ICNARC APS - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -608,7 +631,7 @@ foreach pvar of local physiology_vars {
 	}
 	// ICNARC APS - Partial
 	// Monotonic (ish) - high is bad
-	if "`pvar'"	== "ims_ms" {
+	if "`pvar'"	== "ims_ms_`sepsis3's" {
 		local var_label "ICNARC APS (Partial)"
 		// Ordering of risk
 		local reverse_label 0
@@ -617,7 +640,7 @@ foreach pvar of local physiology_vars {
 		running dead28 `pvar'2 if m0, generate(`pvar'2_dead28)
 
 		cap drop `pvar'_traj
-		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 24
+		gen `pvar'_traj = `pvar'2 - `pvar'1 if time2icu <= 96
 		label var `pvar'_traj "ICNARC APS (Partial) - Ward to ICU change"
 		su `pvar'1 `pvar'2 `pvar'_traj if m0
 		
@@ -861,7 +884,7 @@ foreach pvar of local physiology_vars {
 		xdimension(`pvar'_tvector) ///
 		bydimension(`pvar'2_k) ///
 		byopts(rows(1) title("") ///
-			subtitle("(A) Complete cases", position(11) justification(left) )) ///
+			subtitle("(A) Complete cases - `sepsis_label'", position(11) justification(left) )) ///
 		recastci(rspike) ///
 		plotopts(msymbol(o)) ///
 		xtitle("Pre-admission trajectory", margin(medium)) ///
@@ -916,7 +939,7 @@ foreach pvar of local physiology_vars {
 		xdimension(`pvar'_tvector) ///
 		bydimension(`pvar'2_k) ///
 		byopts(rows(1) title("") ///
-			subtitle("(B) Multiple imputation", position(11) justification(left) )) ///
+			subtitle("(B) Multiple imputation - `sepsis_label'", position(11) justification(left) )) ///
 		recastci(rspike) ///
 		plotopts(msymbol(o)) ///
 		xtitle("Pre-admission trajectory", margin(medium)) ///
@@ -951,353 +974,362 @@ foreach pvar of local physiology_vars {
 	/* Complete cases */
 
 	/* 	Mid-range / risk
-		redefine touse here should also bring back in *all* medium risk patients */
-	cap drop touse
-	gen touse = `pvar'2_k == 2
-	spikeplot `pvar'_traj if touse & m0
+	* 	redefine touse here should also bring back in *all* medium risk patients */
+	* cap drop touse
+	* gen touse = `pvar'2_k == 2
+	* spikeplot `pvar'_traj if touse & m0
 
-	/* Inspect */
-	cap drop `pvar'2_k2_q5
-	xtile `pvar'2_k2_q5 = `pvar'2 , nq(5)
-	tabstat `pvar'2, by(`pvar'2_k2_q5) s(n mean sd q) format(%9.3g)
-	dotplot `pvar'_traj, over(`pvar'2_k2_q5)
+	* /* Inspect */
+	* cap drop `pvar'2_k2_q5
+	* xtile `pvar'2_k2_q5 = `pvar'2 , nq(5)
+	* tabstat `pvar'2, by(`pvar'2_k2_q5) s(n mean sd q) format(%9.3g)
+	* dotplot `pvar'_traj, over(`pvar'2_k2_q5)
 
-	/* Centre your variable */
-	cap drop `pvar'2_original
-	clonevar `pvar'2_original = `pvar'2
-	// CHANGED: 2013-06-03 - centre only wrt to mid-range
-	su `pvar'2 if touse & m0, meanonly
-	replace `pvar'2 = `pvar'2 - r(mean)
+	* /* Centre your variable */
+	* cap drop `pvar'2_original
+	* clonevar `pvar'2_original = `pvar'2
+	* // CHANGED: 2013-06-03 - centre only wrt to mid-range
+	* su `pvar'2 if touse & m0, meanonly
+	* replace `pvar'2 = `pvar'2 - r(mean)
 
-	/* `pvar' 2 - check for interaction */
-	// NOTE: 2013-06-03 - although checking for interaction you are *ignoring* this in the mid-range
-	stcox `pvar'2 `pvar'_traj `confounders' if touse & m0, nolog noshow
-	est store m1
-	stcox c.`pvar'2##c.`pvar'_traj `confounders' if touse & m0, nolog noshow
-	est store m2
-	lincom c.`pvar'2#c.`pvar'_traj,
-	ret li
-	local p = 2 * (1 - normal(abs(r(estimate) / r(se))))
-	local p: di %9.3f `p'
-	di as result "======================================="
-	di as result "Significance of interaction: `p'"
-	di as result "======================================="
-	est stats m1 m2
+	* /* `pvar' 2 - check for interaction */
+	* // NOTE: 2013-06-03 - although checking for interaction you are *ignoring* this in the mid-range
+	* stcox `pvar'2 `pvar'_traj `confounders' if touse & m0, nolog noshow
+	* est store m1
+	* stcox c.`pvar'2##c.`pvar'_traj `confounders' if touse & m0, nolog noshow
+	* est store m2
+	* lincom c.`pvar'2#c.`pvar'_traj,
+	* ret li
+	* local p = 2 * (1 - normal(abs(r(estimate) / r(se))))
+	* local p: di %9.3f `p'
+	* di as result "======================================="
+	* di as result "Significance of interaction: `p'"
+	* di as result "======================================="
+	* est stats m1 m2
 
-	est restore m1
-	di as result "Complete cases model"
-	di as result "===================="
-	est replay
-
-
-	local model_name = "cc `pvar'"
-	global i = $i + 1
-
-	parmest, ///
-		eform ///
-		label list(parm label estimate min* max* p) ///
-		idnum($i) idstr("`model_name'") ///
-		stars(0.05 0.01 0.001) ///
-		format(estimate min* max*  p ) ///
-		saving(`estimates_file', replace)
-
-	cap restore, not
-	preserve
-
-	if $i == 1 {
-		use `estimates_file', clear
-		save ../outputs/tables/$table_name.dta, replace
-	}
-	else {
-		use ../outputs/tables/$table_name.dta, clear
-		append using `estimates_file'
-		save ../outputs/tables/$table_name.dta, replace
-	}
-
-	restore
-
-	su `pvar'_traj if m0, d
-	local range05_95 = r(p95) - r(p5)
-	if "`pvar'" == "gcs" {
-		local nnumlist -5(1)5
-		local lab_numlist -5 0 5
-		local ooffset 2.5
-	}
-	else if "`pvar'" == "ph" {
-		local nnumlist -0.5(0.05)0.5
-		local lab_numlist -0.5 0 0.5
-		local ooffset 0.25
-	}
-	else if `range05_95' <= 5 {
-		local nnumlist -2.5(0.25)2.5
-		local lab_numlist -2.5 0 2.5
-		local ooffset 1.25
-	}
-	else if `range05_95' <= 10 {
-		local nnumlist -5(0.5)5
-		local lab_numlist -5 0 5
-		local ooffset 2.5
-	}
-	else if `range05_95' <= 20 {
-		local nnumlist -10(1)10
-		local lab_numlist -10 0 10
-		local ooffset 5
-	}
-	else if `range05_95' <= 50 {
-		local nnumlist -20(4)20
-		local lab_numlist -20 0 20
-		local ooffset 10
-	}
-	else if `range05_95' <= 100 {
-		local nnumlist -50(5)50
-		local lab_numlist -50 0 50
-		local ooffset 25
-	}
-	else if `range05_95' <= 200 {
-		local nnumlist -100(10)100
-		local lab_numlist -100 0 100
-		local ooffset 50
-	}
-	else if `range05_95' <= 500 {
-		local nnumlist -250(25)250
-		local lab_numlist -250 0 250
-		local ooffset 125
-	}
-	else if `range05_95' <= 1000 {
-		local nnumlist -500(50)500
-		local lab_numlist -500 0 500
-		local ooffset 250
-	}
-
-	global nnumlist `nnumlist'
-	global lab_numlist `lab_numlist'
-	di "Margin will be plotted over $nnumlist"
-
-	margins, at(`pvar'_traj = ($nnumlist) ) vsquish post
-	est store marginsplot_`pvar'
-
-	/* Extract the numbers so you can plot without depending on marginsplot */
-	matrix at = e(at)
-	matrix list at
-	// extract the trajectories from the matrix
-	matrix at = at[1...,2]
-	matrix b = e(b)
-	matrix v = vecdiag(e(V))
-	matrix plot = at, b', v'
-	cap drop plot*
-	svmat plot
-
-	cap drop toplot
-	gen toplot = plot2 != .
-	cap drop at_* bhat vhat
-	rename plot1 at_`pvar'_traj
-	rename plot2 bhat
-	rename plot3 vhat
-	cap drop bhat_min bhat_max
-	gen bhat_min = bhat - (1.96 * vhat^0.5)
-	gen bhat_max = bhat + (1.96 * vhat^0.5)
-
-	replace bhat = . if bhat > 2.5
-	replace bhat = . if bhat < 0.5
-	replace bhat_max = 2.5 if bhat_max > 2.5
-	replace bhat_min = 0.5 if bhat_min < 0.5
-
-	* local reverse_label 0
-	* local pvar rr
-	local ggreen "49 163 84"
-	local rred "215 48 31"
-	if `reverse_label' {
-		local left_worse "-"
-		local right_worse ""
-	}
-	else {
-		local left_worse ""
-		local right_worse "-"
-	}
-	marginsplot ///
-		, ///
-		recastci(rarea) ///
-		ciopts(pstyle(ci)) ///
-		recast(line) ///
-		xlabel($lab_numlist, labsize(small)) ///
-		ylabel(,labsize(small)) ///
-		title("") ///
-		xsize(6) ysize(6) ///
-		plotregion(margin(large)) ///
-		xtitle("Change from pre-admission ICNARC score" ///
-				"(1{superscript:st} 24 hour value - ward assessment value)", ///
-				size(small)) ///
-		text(0 `left_worse'`ooffset' "Worsening" "severity", placement(c) size(small) color("`rred'")) ///
-		text(0  0 "Neutral", placement(c) size(small)) ///
-		text(0 `right_worse'`ooffset' "Improving" "severity", placement(c) size(small) color("`ggreen'")) ///
-		legend(off) ///
-		name(marginsplot_`pvar', replace)
-
-	local ggreen "49 163 84"
-	local rred "215 48 31"
-	local ylabels $y_hrlabels
-	local yline yline(1, lcolor(gs4) lwidth(thin) lpattern(solid) noextend)
-	tw ///
-		(rarea bhat_min bhat_max at_`pvar'_traj, ///
-			pstyle(ci) sort) ///
-		(line bhat at_`pvar'_traj, ///
-			lcolor(black) lpattern(solid) sort) ///
-		, ///
-		ylabel(`ylabels',labsize(small) format(%9.1fc)) ///
-		ytitle("Relative hazard") ///
-		xlabel($lab_numlist, labsize(vsmall) ) ///
-		xlabel(`left_worse'`ooffset' "Worsening", add custom labcolor("`rred'") labsize(small) noticks labgap(medium)) ///
-		xlabel(`right_worse'`ooffset' "Improving", add custom labcolor("`ggreen'") labsize(small) noticks labgap(medium)) ///
-		xsize(6) ysize(6) ///
-		subtitle("(A) Complete cases", position(11) justification(left) ) ///
-		title("") ///
-		plotregion(margin(large)) ///
-		xtitle("Change from pre-admission value", ///
-				size(medsmall)) ///
-		legend(off) ///
-		`yline' ///
-		name(bhatplot_`pvar', replace)
-
-		/* NOW AFTER MI */
-
-	*  =================================
-	*  = Continuous plot using MI data =
-	*  =================================
-	cap drop esample
-	mi estimate, esampvaryok esample(esample): ///
-		stcox `pvar'2 `pvar'_traj `confounders' if touse
-	est store mi1
-
-	cap drop esample
-	mi estimate, esampvaryok esample(esample): ///
-		stcox c.`pvar'2##c.`pvar'_traj `confounders' if touse
-	est store mi2
-	di as result "Multiple imputation model"
-	di as result "========================="
-	est replay, eform
-
-	/* `pvar' 2 - check for interaction */
-	mi test c.`pvar'2#c.`pvar'_traj
-	ret li
-	local p: di %9.3f `=r(p)'
-	di "Significance of interaction: `p'"
-
-	est restore mi1
-	est replay
-
-	tempfile estimates_file working
-
-	local model_name = "mi `pvar'"
-	global i = $i + 1
-
-	parmest, ///
-		eform ///
-		label list(parm label estimate min* max* p) ///
-		idnum($i) idstr("`model_name'") ///
-		stars(0.05 0.01 0.001) ///
-		format(estimate min* max*  p ) ///
-		saving(`estimates_file', replace)
-
-	cap restore, not
-	preserve
-
-	if $i == 1 {
-		use `estimates_file', clear
-		save ../outputs/tables/$table_name.dta, replace
-	}
-	else {
-		use ../outputs/tables/$table_name.dta, clear
-		append using `estimates_file'
-		save ../outputs/tables/$table_name.dta, replace
-	}
-
-	restore
-
-	/* Use the same numlist as for the m0 sample */
-	di "Margin will be plotted over $nnumlist"
-
-	**************************************************
-	/* HACK TO GET MARGINS TO WORK AFTER MI COMMAND */
-	// via http://bit.ly/10CEKNU
-	est describe
-	global mi_est_cmdline `=r(cmdline)'
-	/* First specify the margins command HERE */
-	global margins_cmd "margins, at(`pvar'_traj = ($nnumlist) ) vsquish"
+	* est restore m1
+	* di as result "Complete cases model"
+	* di as result "===================="
+	* est replay
 
 
-	mi estimate, cmdok esampvaryok: emargins 1
-	mat b = e(b_mi)
-	mat V = e(V_mi)
-	est store margins_mi_plot_`pvar'
+	* local model_name = "cc `pvar'"
+	* global i = $i + 1
 
-	/* Extract the numbers so you can plot without depending on marginsplot */
+	* parmest, ///
+	* 	eform ///
+	* 	label list(parm label estimate min* max* p) ///
+	* 	idnum($i) idstr("`model_name'") ///
+	* 	stars(0.05 0.01 0.001) ///
+	* 	format(estimate min* max*  p ) ///
+	* 	saving(`estimates_file', replace)
 
-	matrix at = e(at)
-	matrix list at
-	// extract the trajectories from the matrix
-	matrix at = at[1...,2]
-	matrix b = e(b_mi)
-	matrix v = vecdiag(e(V_mi))
-	cap matrix drop mi_plot
-	matrix mi_plot = at, b', v'
-	matrix list mi_plot
+	* cap restore, not
+	* preserve
 
-	cap drop mi_plot*
-	svmat mi_plot
-	cap drop tomi_plot
-	gen tomi_plot = mi_plot2 != .
-	cap drop mi_at_* mi_bhat mi_vhat
-	rename mi_plot1 mi_at_`pvar'_traj
-	rename mi_plot2 mi_bhat
-	rename mi_plot3 mi_vhat
-	cap drop mi_bhat_min mi_bhat_max
-	gen mi_bhat_min = mi_bhat - (1.96 * mi_vhat^0.5)
-	gen mi_bhat_max = mi_bhat + (1.96 * mi_vhat^0.5)
+	* if $i == 1 {
+	* 	use `estimates_file', clear
+	* 	save ../outputs/tables/$table_name.dta, replace
+	* }
+	* else {
+	* 	use ../outputs/tables/$table_name.dta, clear
+	* 	append using `estimates_file'
+	* 	save ../outputs/tables/$table_name.dta, replace
+	* }
 
-	replace mi_bhat = . if mi_bhat > 2.5
-	replace mi_bhat = . if mi_bhat < 0.5
-	replace mi_bhat_max = 2.5 if mi_bhat_max > 2.5
-	replace mi_bhat_min = 0.5 if mi_bhat_min < 0.5
+	* restore
 
-	local ggreen "49 163 84"
-	local rred "215 48 31"
-	tw ///
-		(rarea mi_bhat_min mi_bhat_max mi_at_`pvar'_traj, ///
-			pstyle(ci) sort) ///
-		(line mi_bhat mi_at_`pvar'_traj, ///
-			lcolor(black) lpattern(solid) sort) ///
-		, ///
-		ylabel(`ylabels',labsize(small) format(%9.1fc)) ///
-		ytitle("Relative hazard") ///
-		xlabel($lab_numlist, labsize(vsmall) ) ///
-		xlabel(`left_worse'`ooffset' "Worsening", add custom labcolor("`rred'") labsize(small) noticks labgap(medium)) ///
-		xlabel(`right_worse'`ooffset' "Improving", add custom labcolor("`ggreen'") labsize(small) noticks labgap(medium)) ///
-		xsize(6) ysize(6) ///
-		title("") ///
-		subtitle("(B) Multiple imputation", position(11) justification(left) ) ///
-		plotregion(margin(large)) ///
-		xtitle("Change from pre-admission value", ///
-				size(medsmall)) ///
-		legend(off) ///
-		`yline' ///
-		name(mi_bhatplot_`pvar', replace)
+	* su `pvar'_traj if m0, d
+	* local range05_95 = r(p95) - r(p5)
+	* if "`pvar'" == "gcs" {
+	* 	local nnumlist -5(1)5
+	* 	local lab_numlist -5 0 5
+	* 	local ooffset 2.5
+	* }
+	* else if "`pvar'" == "ph" {
+	* 	local nnumlist -0.5(0.05)0.5
+	* 	local lab_numlist -0.5 0 0.5
+	* 	local ooffset 0.25
+	* }
+	* else if `range05_95' <= 5 {
+	* 	local nnumlist -2.5(0.25)2.5
+	* 	local lab_numlist -2.5 0 2.5
+	* 	local ooffset 1.25
+	* }
+	* else if `range05_95' <= 10 {
+	* 	local nnumlist -5(0.5)5
+	* 	local lab_numlist -5 0 5
+	* 	local ooffset 2.5
+	* }
+	* else if `range05_95' <= 20 {
+	* 	local nnumlist -10(1)10
+	* 	local lab_numlist -10 0 10
+	* 	local ooffset 5
+	* }
+	* else if `range05_95' <= 50 {
+	* 	local nnumlist -20(4)20
+	* 	local lab_numlist -20 0 20
+	* 	local ooffset 10
+	* }
+	* else if `range05_95' <= 100 {
+	* 	local nnumlist -50(5)50
+	* 	local lab_numlist -50 0 50
+	* 	local ooffset 25
+	* }
+	* else if `range05_95' <= 200 {
+	* 	local nnumlist -100(10)100
+	* 	local lab_numlist -100 0 100
+	* 	local ooffset 50
+	* }
+	* else if `range05_95' <= 500 {
+	* 	local nnumlist -250(25)250
+	* 	local lab_numlist -250 0 250
+	* 	local ooffset 125
+	* }
+	* else if `range05_95' <= 1000 {
+	* 	local nnumlist -500(50)500
+	* 	local lab_numlist -500 0 500
+	* 	local ooffset 250
+	* }
 
-	graph combine bhatplot_`pvar' mi_bhatplot_`pvar', ///
-		rows(1) ycommon xcommon xsize(6) ysize(4) ///
-		name(bkwd_`pvar'_monly, replace)
+	* global nnumlist `nnumlist'
+	* global lab_numlist `lab_numlist'
+	* di "Margin will be plotted over $nnumlist"
 
-	graph display bkwd_`pvar'_monly
-	graph export ../outputs/figures/bkwd_`pvar'_monly.$gext ///
-	    , name(bkwd_`pvar'_monly) replace
-	!rm ../outputs/figures/bkwd_`pvar'_monly.$gext_other
+	* margins, at(`pvar'_traj = ($nnumlist) ) vsquish post
+	* est store marginsplot_`pvar'
 
-	* graph combine bkwd_`pvar'_grid bkwd_`pvar'_monly, ///
-	* 	rows(2) xsize(6) ysize(6) ///
-	* 	name(`pvar'_traj_all, replace)
+	* /* Extract the numbers so you can plot without depending on marginsplot */
+	* matrix at = e(at)
+	* matrix list at
+	* // extract the trajectories from the matrix
+	* matrix at = at[1...,2]
+	* matrix b = e(b)
+	* matrix v = vecdiag(e(V))
+	* matrix plot = at, b', v'
+	* cap drop plot*
+	* svmat plot
+
+	* cap drop toplot
+	* gen toplot = plot2 != .
+	* cap drop at_* bhat vhat
+	* rename plot1 at_`pvar'_traj
+	* rename plot2 bhat
+	* rename plot3 vhat
+	* cap drop bhat_min bhat_max
+	* gen bhat_min = bhat - (1.96 * vhat^0.5)
+	* gen bhat_max = bhat + (1.96 * vhat^0.5)
+
+	* replace bhat = . if bhat > 2.5
+	* replace bhat = . if bhat < 0.5
+	* replace bhat_max = 2.5 if bhat_max > 2.5
+	* replace bhat_min = 0.5 if bhat_min < 0.5
+
+	* * local reverse_label 0
+	* * local pvar rr
+	* local ggreen "49 163 84"
+	* local rred "215 48 31"
+	* if `reverse_label' {
+	* 	local left_worse "-"
+	* 	local right_worse ""
+	* }
+	* else {
+	* 	local left_worse ""
+	* 	local right_worse "-"
+	* }
+	* marginsplot ///
+	* 	, ///
+	* 	recastci(rarea) ///
+	* 	ciopts(pstyle(ci)) ///
+	* 	recast(line) ///
+	* 	xlabel($lab_numlist, labsize(small)) ///
+	* 	ylabel(,labsize(small)) ///
+	* 	title("") ///
+	* 	xsize(6) ysize(6) ///
+	* 	plotregion(margin(large)) ///
+	* 	xtitle("Change from pre-admission ICNARC score" ///
+	* 			"(1{superscript:st} 24 hour value - ward assessment value)", ///
+	* 			size(small)) ///
+	* 	text(0 `left_worse'`ooffset' "Worsening" "severity", placement(c) size(small) color("`rred'")) ///
+	* 	text(0  0 "Neutral", placement(c) size(small)) ///
+	* 	text(0 `right_worse'`ooffset' "Improving" "severity", placement(c) size(small) color("`ggreen'")) ///
+	* 	legend(off) ///
+	* 	name(marginsplot_`pvar', replace)
+
+	* local ggreen "49 163 84"
+	* local rred "215 48 31"
+	* local ylabels $y_hrlabels
+	* local yline yline(1, lcolor(gs4) lwidth(thin) lpattern(solid) noextend)
+	* tw ///
+	* 	(rarea bhat_min bhat_max at_`pvar'_traj, ///
+	* 		pstyle(ci) sort) ///
+	* 	(line bhat at_`pvar'_traj, ///
+	* 		lcolor(black) lpattern(solid) sort) ///
+	* 	, ///
+	* 	ylabel(`ylabels',labsize(small) format(%9.1fc)) ///
+	* 	ytitle("Relative hazard") ///
+	* 	xlabel($lab_numlist, labsize(vsmall) ) ///
+	* 	xlabel(`left_worse'`ooffset' "Worsening", add custom labcolor("`rred'") labsize(small) noticks labgap(medium)) ///
+	* 	xlabel(`right_worse'`ooffset' "Improving", add custom labcolor("`ggreen'") labsize(small) noticks labgap(medium)) ///
+	* 	xsize(6) ysize(6) ///
+	* 	subtitle("(A) Complete cases", position(11) justification(left) ) ///
+	* 	title("") ///
+	* 	plotregion(margin(large)) ///
+	* 	xtitle("Change from pre-admission value", ///
+	* 			size(medsmall)) ///
+	* 	legend(off) ///
+	* 	`yline' ///
+	* 	name(bhatplot_`pvar', replace)
+
+	* 	/* NOW AFTER MI */
+
+	* *  =================================
+	* *  = Continuous plot using MI data =
+	* *  =================================
+	* cap drop esample
+	* mi estimate, esampvaryok esample(esample): ///
+	* 	stcox `pvar'2 `pvar'_traj `confounders' if touse
+	* est store mi1
+
+	* cap drop esample
+	* mi estimate, esampvaryok esample(esample): ///
+	* 	stcox c.`pvar'2##c.`pvar'_traj `confounders' if touse
+	* est store mi2
+	* di as result "Multiple imputation model"
+	* di as result "========================="
+	* est replay, eform
+
+	* /* `pvar' 2 - check for interaction */
+	* mi test c.`pvar'2#c.`pvar'_traj
+	* ret li
+	* local p: di %9.3f `=r(p)'
+	* di "Significance of interaction: `p'"
+
+	* est restore mi1
+	* est replay
+
+	* tempfile estimates_file working
+
+	* local model_name = "mi `pvar'"
+	* global i = $i + 1
+
+	* parmest, ///
+	* 	eform ///
+	* 	label list(parm label estimate min* max* p) ///
+	* 	idnum($i) idstr("`model_name'") ///
+	* 	stars(0.05 0.01 0.001) ///
+	* 	format(estimate min* max*  p ) ///
+	* 	saving(`estimates_file', replace)
+
+	* cap restore, not
+	* preserve
+
+	* if $i == 1 {
+	* 	use `estimates_file', clear
+	* 	save ../outputs/tables/$table_name.dta, replace
+	* }
+	* else {
+	* 	use ../outputs/tables/$table_name.dta, clear
+	* 	append using `estimates_file'
+	* 	save ../outputs/tables/$table_name.dta, replace
+	* }
+
+	* restore
+
+	* /* Use the same numlist as for the m0 sample */
+	* di "Margin will be plotted over $nnumlist"
+
+	* **************************************************
+	* /* HACK TO GET MARGINS TO WORK AFTER MI COMMAND */
+	* // via http://bit.ly/10CEKNU
+	* est describe
+	* global mi_est_cmdline `=r(cmdline)'
+	* /* First specify the margins command HERE */
+	* global margins_cmd "margins, at(`pvar'_traj = ($nnumlist) ) vsquish"
+
+
+	* mi estimate, cmdok esampvaryok: emargins 1
+	* mat b = e(b_mi)
+	* mat V = e(V_mi)
+	* est store margins_mi_plot_`pvar'
+
+	* /* Extract the numbers so you can plot without depending on marginsplot */
+
+	* matrix at = e(at)
+	* matrix list at
+	* // extract the trajectories from the matrix
+	* matrix at = at[1...,2]
+	* matrix b = e(b_mi)
+	* matrix v = vecdiag(e(V_mi))
+	* cap matrix drop mi_plot
+	* matrix mi_plot = at, b', v'
+	* matrix list mi_plot
+
+	* cap drop mi_plot*
+	* svmat mi_plot
+	* cap drop tomi_plot
+	* gen tomi_plot = mi_plot2 != .
+	* cap drop mi_at_* mi_bhat mi_vhat
+	* rename mi_plot1 mi_at_`pvar'_traj
+	* rename mi_plot2 mi_bhat
+	* rename mi_plot3 mi_vhat
+	* cap drop mi_bhat_min mi_bhat_max
+	* gen mi_bhat_min = mi_bhat - (1.96 * mi_vhat^0.5)
+	* gen mi_bhat_max = mi_bhat + (1.96 * mi_vhat^0.5)
+
+	* replace mi_bhat = . if mi_bhat > 2.5
+	* replace mi_bhat = . if mi_bhat < 0.5
+	* replace mi_bhat_max = 2.5 if mi_bhat_max > 2.5
+	* replace mi_bhat_min = 0.5 if mi_bhat_min < 0.5
+
+	* local ggreen "49 163 84"
+	* local rred "215 48 31"
+	* tw ///
+	* 	(rarea mi_bhat_min mi_bhat_max mi_at_`pvar'_traj, ///
+	* 		pstyle(ci) sort) ///
+	* 	(line mi_bhat mi_at_`pvar'_traj, ///
+	* 		lcolor(black) lpattern(solid) sort) ///
+	* 	, ///
+	* 	ylabel(`ylabels',labsize(small) format(%9.1fc)) ///
+	* 	ytitle("Relative hazard") ///
+	* 	xlabel($lab_numlist, labsize(vsmall) ) ///
+	* 	xlabel(`left_worse'`ooffset' "Worsening", add custom labcolor("`rred'") labsize(small) noticks labgap(medium)) ///
+	* 	xlabel(`right_worse'`ooffset' "Improving", add custom labcolor("`ggreen'") labsize(small) noticks labgap(medium)) ///
+	* 	xsize(6) ysize(6) ///
+	* 	title("") ///
+	* 	subtitle("(B) Multiple imputation - `sepsis_label'", position(11) justification(left) ) ///
+	* 	plotregion(margin(large)) ///
+	* 	xtitle("Change from pre-admission value", ///
+	* 			size(medsmall)) ///
+	* 	legend(off) ///
+	* 	`yline' ///
+	* 	name(mi_bhatplot_`pvar', replace)
+
+	* graph combine bhatplot_`pvar' mi_bhatplot_`pvar', ///
+	* 	rows(1) ycommon xcommon xsize(6) ysize(4) ///
+	* 	name(bkwd_`pvar'_monly, replace)
+
+	* graph display bkwd_`pvar'_monly
+	* graph export ../outputs/figures/bkwd_`pvar'_monly.$gext ///
+	*     , name(bkwd_`pvar'_monly) replace
+	* !rm ../outputs/figures/bkwd_`pvar'_monly.$gext_other
+
+	* * graph combine bkwd_`pvar'_grid bkwd_`pvar'_monly, ///
+	* * 	rows(2) xsize(6) ysize(6) ///
+	* * 	name(`pvar'_traj_all, replace)
 
 
 }
+// closing brace for trajectory definition loop
+restore
+}
 
-* use ../outputs/tables/$table_name.dta, clear
+graph combine bkwd_ims_ms_1s_grid bkwd_ims_ms_2s_grid bkwd_ims_ms_3s_grid , ///
+	rows(1) title("Trajectory by clinical sepsis diagnosis") xsize(8) ysize(4) ///
+	name(bkwd_sepsis_sensitivity, replace)
+graph display bkwd_sepsis_sensitivity
+graph export ../outputs/figures/bkwd_sepsis_sensitivity.$gext ///
+    , name(bkwd_sepsis_sensitivity) replace
+!rm ../outputs/figures/bkwd_sepsis_sensitivity.$gext_other
 
 cap log close
