@@ -72,7 +72,7 @@ global ycat_labels `" 0.1 "10" 0.3 "30" 0.5 "50" "'
 
 
 * local physiology_vars lac cr plat pf
-local physiology_vars hr bps rr lac temp wcc urin pf plat na cr urea ims_c ph gcs
+local physiology_vars hr bps rr lac temp wcc urin pf plat na cr urea ims_c ims_ms ph gcs
 * local physiology_vars hr
 
 save ../data/scratch/scratch.dta, replace

@@ -2,6 +2,14 @@
 * = Prepare severity scores and trajectories =
 * ============================================
 
+// Define the trajectory time period
+// Unless the external call local is set then trajectory is 24
+if "`external_call'" == "" {
+    global traj_x 24
+}
+
+
+
 /*
 - best to use mean value rather than highest or lowest
 - although in the end you will need to run sensitivity analyses for all
@@ -298,82 +306,86 @@ label var ims_abg2 "ICNARC score (+ABG) - ICU"
 *  ================
 *  = Trajectories =
 *  ================
-local traj_x 24
+di as result "Working with trajectory denominator: $traj_x"
+// substract 1 minute from time2icu so that the floor rounds down
+tempvar traj_denominator
+gen `traj_denominator' = floor((time2icu - (1/60)) / $traj_x) + 1
+sum `traj_denominator'
 
 cap drop ims_c_traj
-gen ims_c_traj = (ims_c2 - ims_c1) / (round(time2icu, `traj_x') + 1)
+gen ims_c_traj = (ims_c2 - ims_c1) / `traj_denominator'
 label var ims_c_traj "IMscore - complete - - Ward to ICU change"
 
 cap drop ims_ms_traj
-gen ims_ms_traj = (ims_ms2 - ims_ms1) / (round(time2icu, `traj_x') + 1)
+gen ims_ms_traj = (ims_ms2 - ims_ms1) / `traj_denominator'
 label var ims_ms_traj "ICNARC score (partial) - Ward to ICU change"
 
 cap drop ims_abg_traj
-gen ims_abg_traj = (ims_abg2 - ims_abg1) / (round(time2icu, `traj_x') + 1)
+gen ims_abg_traj = (ims_abg2 - ims_abg1) / `traj_denominator'
 label var ims_abg_traj "ICNARC score (+ABG) - Ward to ICU change"
 
 cap drop pf_traj
-gen pf_traj = (pf2 - pf1) / (round(time2icu, `traj_x') + 1)
+gen pf_traj = (pf2 - pf1) / `traj_denominator'
 label var pf_traj "P:F - Ward to ICU change"
 
 cap drop urin_traj
-gen urin_traj = (urin2 - urin1) / (round(time2icu, `traj_x') + 1)
+gen urin_traj = (urin2 - urin1) / `traj_denominator'
 label var urin_traj "Urine output - Ward to ICU change"
 
 cap drop cr_traj
-gen cr_traj = (cr2 - cr1) / (round(time2icu, `traj_x') + 1)
+gen cr_traj = (cr2 - cr1) / `traj_denominator'
 label var cr_traj "Creatinine - Ward to ICU change"
 
 cap drop lac_traj
-gen lac_traj = (lac2 - lac1) / (round(time2icu, `traj_x') + 1)
+gen lac_traj = (lac2 - lac1) / `traj_denominator'
 label var lac_traj "Lactate - Ward to ICU change"
 
 cap drop urea_traj
-gen urea_traj = (urea2 - urea1) / (round(time2icu, `traj_x') + 1)
+gen urea_traj = (urea2 - urea1) / `traj_denominator'
 label var urea_traj "Urea - Ward to ICU change"
 
 cap drop na_traj
-gen na_traj = (na2 - na1) / (round(time2icu, `traj_x') + 1)
+gen na_traj = (na2 - na1) / `traj_denominator'
 label var na_traj "Sodium - Ward to ICU change"
 
 cap drop plat_traj
-gen plat_traj = (plat2 - plat1) / (round(time2icu, `traj_x') + 1)
+gen plat_traj = (plat2 - plat1) / `traj_denominator'
 label var plat_traj "Platelets - Ward to ICU change"
 
 cap drop hr_traj
-gen hr_traj = (hr2 - hr1) / (round(time2icu, `traj_x') + 1)
+gen hr_traj = (hr2 - hr1) / `traj_denominator'
 label var hr_traj "Heart rate - Ward to ICU change"
 
 cap drop rr_traj
-gen rr_traj = (rr2 - rr1) / (round(time2icu, `traj_x') + 1)
+gen rr_traj = (rr2 - rr1) / `traj_denominator'
 label var rr_traj "Respiratory rate - Ward to ICU change"
 
 cap drop bps_traj
-gen bps_traj = (bps2 - bps1) / (round(time2icu, `traj_x') + 1)
+gen bps_traj = (bps2 - bps1) / `traj_denominator'
 label var bps_traj "Systolic BP - Ward to ICU change"
 
 cap drop na_traj
-gen na_traj = (na2 - na1) / (round(time2icu, `traj_x') + 1)
+gen na_traj = (na2 - na1) / `traj_denominator'
 label var na_traj "Sodium - Ward to ICU change"
 
 cap drop wcc_traj
-gen wcc_traj = (wcc2 - wcc1) / (round(time2icu, `traj_x') + 1)
+gen wcc_traj = (wcc2 - wcc1) / `traj_denominator'
 label var wcc_traj "White cell count - Ward to ICU change"
 
 cap drop temp_traj
-gen temp_traj = (temp2 - temp1) / (round(time2icu, `traj_x') + 1)
+gen temp_traj = (temp2 - temp1) / `traj_denominator'
 label var temp_traj "Temperature - Ward to ICU change"
 
 cap drop ph_traj
-gen ph_traj = (ph2 - ph1) / (round(time2icu, `traj_x') + 1)
+gen ph_traj = (ph2 - ph1) / `traj_denominator'
 label var ph_traj "pH - Ward to ICU change"
 
 cap drop urin_traj
-gen urin_traj = (urin2 - urin1) / (round(time2icu, `traj_x') + 1)
+gen urin_traj = (urin2 - urin1) / `traj_denominator'
 label var urin_traj "Urine volume - Ward to ICU change"
 
 cap drop gcs_traj
-gen gcs_traj = (gcs2 - gcs1) / (round(time2icu, `traj_x') + 1)
+gen gcs_traj = (gcs2 - gcs1) / `traj_denominator'
 label var gcs_traj "GCS - Ward to ICU change"
 
 // clone var so match naming pattern
@@ -383,7 +395,7 @@ if !_rc {
     clonevar filpo2 = filpo
     replace filpo2 = 100 * filpo2
     cap drop filpo_traj
-    gen filpo_traj = (filpo2 - fio2_std) / (round(time2icu, `traj_x') + 1)
+    gen filpo_traj = (filpo2 - fio2_std) / `traj_denominator'
     label var filpo_traj "Inpsired oxygen - Ward to ICU change"
 }
 
@@ -458,6 +470,7 @@ cap drop ims_tvector
 gen ims_tvector = .
 label var ims_tvector "Pre-admission ICNARC trajectory"
 replace ims_tvector = 1 if inlist(ims_tclass,1,4)
+cap label drop ims_tvector
 label define ims_tvector 1 "Improving"
 replace ims_tvector = 2 if inlist(ims_tclass,2,5,8)
 label define ims_tvector 2 "Neutral", add
@@ -477,6 +490,7 @@ cap drop ims_c1_k
 egen ims_c1_k = cut(ims_c1), at(0, 15, 25 100) icodes
 replace ims_c1_k = ims_c1_k + 1
 label var ims_c1_k "ICNARC APS - Ward"
+cap label drop ims_c1_k
 cap label drop ims_c1_k
 label define ims_c1_k 1 "Low risk" 2 "Medium risk" 3 "High risk"
 label values ims_c1_k ims_c1_k
@@ -602,6 +616,7 @@ cap drop ims_abg_tvector
 gen ims_abg_tvector = .
 label var ims_abg_tvector "Pre-admission ICNARC (+ABG) trajectory"
 replace ims_abg_tvector = 1 if inlist(ims_abg_tclass,1,4)
+cap label drop ims_abg_tvector
 label define ims_abg_tvector 1 "Improving"
 replace ims_abg_tvector = 2 if inlist(ims_abg_tclass,2,5,8)
 label define ims_abg_tvector 2 "Neutral", add

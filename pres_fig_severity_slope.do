@@ -41,43 +41,6 @@ local vars hr bps temp rr urea cr na wcc pf gcs urin ph
 * CHANGED: 2013-04-16 - drop GCS because flat
 local vars hr bps temp rr urea cr na wcc pf urin ph
 keep id *1_wt *2_wt 
-foreach var of local vars {
-	gen `var'_traj = `var'2 - `var'1
-}
-count
-
-// convert to long
-rename *_wt *
-reshape long `vars', i(id) j(time)
-
-
-
-// collapse into means
-collapse (mean) `vars' *_traj, by(time)
-xpose, varname promote clear
-drop if _varname == "time"
-encode _varname, gen(parm)
-rename _varname varname
-reshape long v, i(parm) j(time)
-replace time = time - 1
-rename v wt_mean
-order parm time wt_mean
-
-
-// merge on trajectories
-cap restore, not
-preserve
-keep if strpos(varname, "traj")
-keep varname wt_mean
-duplicates drop varname, force
-replace varname = reverse(substr(reverse(varname), 6, .))
-rename wt_mean traj
-tempfile 2merge
-save `2merge', replace
-restore
-drop if strpos(varname, "traj")
-merge m:1 varname using `2merge'
-drop _merge
 
 
 

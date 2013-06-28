@@ -78,7 +78,7 @@ forvalues r = 1/2 {
 	replace label_text = "Respiratory rate" if varname == "rr"
 	replace label_text = "Heart rate" if varname == "hr"
 	replace label_text = "pH" if varname == "ph"
-	replace label_text = "gcs" if varname == "GCS"
+	replace label_text = "GCS" if varname == "gcs"
 	replace label_text = "P:F ratio" if varname == "pf"
 	replace label_text = "Urine output" if varname == "urin"
 
@@ -146,9 +146,9 @@ forvalues r = 1/2 {
 		legend(off) ///
 		plotregion(margin(l=`sidemargin' r=`sidemargin')) ///
 		ysize(6) xsize(3) ///
-		text(0 0 "Ward", size(small) placement(9) justification(right)) ///
-		text(0 1 "ICU", size(small) placement(3) justification(left)) ///
-		title("$title", position(6) size(small))
+		text(-.2 0 "{bf:Ward}", size(small) placement(9) justification(right)) ///
+		text(-.2 1 "{bf:ICU}", size(small) placement(3) justification(left)) ///
+		title("$title", position(6) size(small) margin(large))
 
 
 	graph rename slope_$population, replace

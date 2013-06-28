@@ -7,25 +7,20 @@ global figure_name delta_vs_cmp
 
 /*
 created:	130403
-modified:	130403
 
 x-axis admission value
 y-axis 1: pre-admission delta
 y-axis 2: histogram
 
 Initially focus on admissions within 4 / 12 / 24+ hrs
-Repear for each meetric
+
+Dotplots
+
+## Change log
+
+
 
 */
-
-
-
-local clean_run 0
-if `clean_run' == 1 {
-    clear
-    use ../data/working.dta
-    qui include cr_preflight.do
-}
 
 
 // ICNARC complete

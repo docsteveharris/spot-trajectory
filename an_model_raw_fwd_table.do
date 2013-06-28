@@ -1,16 +1,12 @@
 *  ============================================================
-*  = Produce table following full run of an_model_raw_bkwd.do =
+*  = Produce table following full run of an_model_raw_fwd.do =
 *  ============================================================
 
 /*
 Created 	130622
-Modified	130622
 
-Log
-NOTE: 2013-06-22 - Currently works with timestamped version of the output from an_model_raw_bkwd.do
-because I accidentally overwrote the file while developing the sensitivity analysis 
-and so had to retrieve it from Arq
-NOTE: 2013-06-23 - updated to work with most recent data
+Changes
+130623 - converted to work with fwd version of data
 
 
 Table design
@@ -22,8 +18,8 @@ Table design
 */
 
 clear
-global table_name model_bkwd_monly
-use ../outputs/tables/model_bkwd_monly.dta
+global table_name model_fwd_monly
+use ../outputs/tables/model_fwd_monly.dta
 count
 
 // flag cc and mi rows
@@ -45,7 +41,7 @@ drop if var == "gcs"
 // reshape wide
 drop mi cc z dof t
 gen wide = .
-replace wide = 1 if strpos(parm,"2")
+replace wide = 1 if strpos(parm,"1")
 replace wide = 2 if strpos(parm,"traj")
 reshape wide estimate stderr p stars min95 max95 parm label, i(idnum) j(wide)
 
@@ -54,29 +50,29 @@ reshape wide estimate stderr p stars min95 max95 parm label, i(idnum) j(wide)
 
 // prep table
 gen varname = parm1
-replace varname = "imscore" if varname == "ims_c2"
+replace varname = "ims_ms1" if varname == "ims_ms1"
 include mt_Programs.do
 gen var_level = .
 spot_label_table_vars
 
 global table_order ///
-	imscore ///
-	ims_ms2 ///
+	ims_c1 ///
+	ims_ms1 ///
     gap_here ///
-	hr2 ///
-	bps2 ///
-	temp2 ///
-	rr2 ///
-	pf2 ///
-	ph2 ///
-	urea2 ///
-	cr2 ///
-	na2 ///
-	urin2 ///
-	wcc2 ///
+	hr1 ///
+	bps1 ///
+	temp1 ///
+	rr1 ///
+	pf1 ///
+	ph1 ///
+	urea1 ///
+	cr1 ///
+	na1 ///
+	urin1 ///
+	wcc1 ///
     gap_here ///
-	plat2 ///
-	lac2 ///
+	plat1 ///
+	lac1 ///
 
 
 // number the gaps
@@ -118,21 +114,23 @@ if _rc {
     tostring unitlabel, replace
     replace unitlabel = "" if unitlabel == "."
 }
-replace unitlabel = "point" if varname == "imscore"
-replace unitlabel = "point" if varname == "ims_ms2"
-replace unitlabel = "unit" if varname == "ph2"
+replace unitlabel = "point" if varname == "ims_c1"
+replace unitlabel = "point" if varname == "ims_ms1"
+replace unitlabel = "unit" if varname == "ph1"
 gen unit_change = "per 1 " + unitlabel
 order tablerowlabel unit_change
 
 ingap 3 14
-replace tablerowlabel = "ICNARC APS (complete)" if varname == "imscore"
-replace tablerowlabel = "ICNARC APS (partial)" if varname == "ims_ms2"
+
+
+replace tablerowlabel = "ICNARC APS (complete)" if varname == "ims_c1"
+replace tablerowlabel = "ICNARC APS (partial)" if varname == "ims_ms1"
 
 // now send the table to latex
 local cols tablerowlabel unit_change estimate1 vbracket1 p1 estimate2 vbracket2 p2
 order `cols'
 
-local super_heading "&&  \multicolumn{3}{c}{ICU admission value} & \multicolumn{3}{c}{Pre-admission trajectory} \\"
+local super_heading "&&  \multicolumn{3}{c}{Ward assessment value} & \multicolumn{3}{c}{Pre-admission trajectory} \\"
 local h1 "& Unit change & OR & 95\%CI & p & OR & 95\%CI & p\\ "
 
 * CHANGED: 2013-05-14 - decimally aligned column

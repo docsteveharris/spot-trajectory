@@ -70,7 +70,7 @@ if `sepsis3' == 1 local sepsis_label "Unlikely / Very unlikely"
 if `sepsis3' == 2 local sepsis_label "Likely"
 if `sepsis3' == 3 local sepsis_label "Very likely"
 
-global table_name model_bkwd_monly
+global table_name model_bkwd_monly_sepsis3
 tempfile estimates_file working
 global i = 0
 

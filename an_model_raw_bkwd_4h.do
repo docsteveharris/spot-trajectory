@@ -27,7 +27,7 @@ merge m:1 id using ../data/working_postflight ///
 drop if inlist(_merge, 1,2)
 drop _merge
 
-global table_name model_bkwd_monly
+global table_name model_bkwd_monly_4h
 tempfile estimates_file working
 global i = 0
 

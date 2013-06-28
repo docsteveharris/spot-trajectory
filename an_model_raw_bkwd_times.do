@@ -57,7 +57,7 @@ local external_call 1
 global traj_x `t'
 include cr_severity.do
 
-global table_name model_bkwd_monly
+global table_name model_bkwd_monly_times
 tempfile estimates_file working
 global i = 0
 
