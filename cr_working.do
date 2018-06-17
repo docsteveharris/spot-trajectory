@@ -204,6 +204,8 @@ use ../data/working_raw_mris.dta, clear
 *  = Now start the standard include / exclude process =
 *  ====================================================
 
+* JH: Drop existing included_sites column, create new column included_sites, 1 if icode present??
+
 cap drop included_sites
 egen included_sites = tag(icode)
 count if included_sites == 1
