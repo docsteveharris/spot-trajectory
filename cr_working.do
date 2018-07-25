@@ -389,6 +389,8 @@ list icode dead dead_icu dod date_trace  ///
 	if ( dod != date_trace | dofc(icu_discharge) > date_trace) ///
 	& dead_icu != dead & dead != . & dod != . & icu_discharge != ., ///
 	sepby(idvisit) table compress
+	
+	## dofc converts time in milliseconds to date format for icu_discharge
 
 count if dofc(icu_discharge) != date_trace & dead_icu == 1 & dead !=.
 * NB all done at the at hours resolution
